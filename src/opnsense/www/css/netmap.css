@@ -175,3 +175,5 @@
 .nm-fw-row { justify-content: flex-start; align-items: center; gap: 10px; }
 .nm-fw-row .btn { min-width: 118px; text-align: left; }
 .nm-fw-row > div { min-width: 0; }
+.nm-fw-row { padding: 4px 0; }
+.nm-fw-row + .nm-fw-row { margin-top: 8px; }
