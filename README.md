@@ -28,6 +28,19 @@ with its traffic. Read-only.
   API with the privileges of the logged-in user. Device names come from,
   in order: the name given in the map, the Kea reservation, Instant On,
   the DHCP lease and the ARP table.
+* **Firewall** (device panel) – *Ban* blocks every packet the device sends
+  through the firewall (Internet, other networks, services of the firewall);
+  *Block Internet* keeps it on the local networks. Both use MAC address
+  aliases (`netmap_banned`, `netmap_nowan`), so the block follows the device
+  when its address changes; the two block rules ("Network Map: ...") are
+  created on every internal network the first time they are needed and
+  applied with a rollback savepoint. *Port forwards* to the device are
+  listed and can be added (WAN address, protocol, port or range, device
+  port) or deleted. The **Restrictions** button lists blocked devices and
+  every port forward. These changes use the firewall API with the
+  privileges of the logged-in user.
+* **Icon** – the kind of a device, and so its icon, can be chosen from a
+  grid in the rename form.
 * **Open ports** (device panel) – a Fing-like port scan with nmap running
   on the firewall: *quick* (the 200 most common TCP ports with service
   names, about a minute) or *full* (every TCP port, service versions and an
@@ -51,6 +64,8 @@ Only core OPNsense APIs, read from the browser:
 | Physical links, Wi-Fi | `instanton/status/{clients,topology}` (optional) |
 | Open ports | `netmap/scan/{start,status}` (this plugin, nmap) |
 | Names, kinds, notes | `netmap/devices/{list,save}` (this plugin) |
+| Bans, Internet block | `firewall/alias/{search,add,set}_item`, `firewall/alias/reconfigure`, `firewall/filter/{search,add}_rule`, `firewall/filter/{savepoint,apply,cancel_rollback}` |
+| Port forwards | `firewall/d_nat/{search,add,del}_rule`, `firewall/d_nat/apply` |
 | DHCP reservations | `kea/dhcpv4/{search,add,set,del}_reservation`, `kea/dhcpv4/search_subnet`, `kea/service/reconfigure` |
 
 Limits: the firewall only sees traffic that crosses it (to the Internet

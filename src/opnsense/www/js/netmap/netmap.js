@@ -187,6 +187,7 @@
         this.instanton = null;   // {clients: {mac: client}, topology: nodes}
         this.custom = {};        // mac -> {name, kind, notes} given in the map
         this.kea = {res: {}, subnets: []};  // Kea DHCPv4 reservations by MAC, subnets
+        this.fw = {aliases: {}, rules: {}, forwards: []};  // blocking aliases and rules, port forwards
         this.updated = {};
     }
 
@@ -198,7 +199,7 @@
     };
 
     Model.prototype.loadInterfaces = function (rows) {
-        var nets = [], own = {}, wanNets = [];
+        var nets = [], own = {}, wanNets = [], wanIf = '';
         $.each(rows || [], function (_, r) {
             if (!r.identifier || !r.addr4 || r.identifier === 'lo0') { return; }
             $.each(r.ipv4 || [], function (_, a) { own[String(a.ipaddr || a.address || '').split('/')[0]] = 1; });
@@ -208,6 +209,7 @@
             var wan = (r.gateways || []).some(function (g) { return String(g).indexOf(':') < 0; }) || /^wan\b/i.test(r.description || '');
             if (wan) {
                 $.each(r.ipv4 || [{ipaddr: r.addr4}], function (_, a) { wanNets.push(a.ipaddr || a.address); });
+                if (!wanIf && (r.gateways || []).some(function (g) { return String(g).indexOf(':') < 0; })) { wanIf = r.identifier; }
                 return;
             }
             if (bits >= 31) { return; }
@@ -218,6 +220,7 @@
         $.each(nets, function (i, n) { n.color = PALETTE[i % PALETTE.length]; });
         this.nets = nets;
         this.wanNets = wanNets;
+        this.wanIf = wanIf;
         this.ownIps = own;
     };
 
@@ -448,8 +451,11 @@
             '  <label class="nm-check"><input type="checkbox" class="nm-offline"> offline too</label>' +
             '  <select class="form-control input-sm nm-sort"><option value="traffic">by traffic</option><option value="name">by name</option>' +
             '    <option value="ip">by address</option></select>' +
+            '  <button type="button" class="btn btn-default btn-sm nm-restrict-btn" title="Banned devices, devices without Internet, port forwards">' +
+            icon('ban') + ' Restrictions <span class="badge nm-restrict-count"></span></button>' +
             '  <span class="nm-status text-muted"></span>' +
             '</div>' +
+            '<div class="nm-restrict" style="display:none"></div>' +
             '<div class="nm-chips"></div>' +
             '<div class="nm-stage"></div>' +
             '<div class="nm-drawer" aria-hidden="true"></div>');
@@ -653,6 +659,9 @@
             });
             chips(groups);
             fillTypes();
+            var nBlocked = 0;
+            $.each(FW, function (_, def) { var a = model.fw.aliases[def.alias]; nBlocked += a ? a.content.length : 0; });
+            $root.find('.nm-restrict-count').text(nBlocked || '');
             // cable / Wi-Fi filters only make sense when switch and access point data tell it
             var exact = !!(model.instanton && model.instanton.clients);
             $root.find('.nm-toolbar .nm-link').toggle(exact);
@@ -923,6 +932,18 @@
 
         function selectedHost() { return model.hosts[selected]; }
 
+        function iconPicker(current) {
+            var auto = TYPES[guessType([selectedHost().autoName], selectedHost().vendor)[0]];
+            var html = '<label class="nm-icon-opt" title="Automatic: ' + esc(auto[0]) + '"><input type="radio" name="kind" value=""' +
+                (current ? '' : ' checked') + '><span>' + icon(auto[1]) + '<small>auto</small></span></label>';
+            $.each(Object.keys(TYPES).sort(function (a, b) { return TYPES[a][0].localeCompare(TYPES[b][0]); }), function (_, t) {
+                if (t === 'unknown') { return; }
+                html += '<label class="nm-icon-opt" title="' + esc(TYPES[t][0]) + '"><input type="radio" name="kind" value="' + t + '"' +
+                    (t === current ? ' checked' : '') + '><span>' + icon(TYPES[t][1]) + '<small>' + esc(TYPES[t][0].split(/[ /]/)[0]) + '</small></span></label>';
+            });
+            return html;
+        }
+
         function field(label, name, value, help, extra) {
             return '<div class="form-group"><label>' + esc(label) + '</label><input type="text" class="form-control input-sm" name="' + name +
                 '" value="' + esc(value) + '"' + (extra || '') + '>' + (help ? '<p class="help-block small">' + help + '</p>' : '') + '</div>';
@@ -936,7 +957,7 @@
             if (editing === 'device') {
                 html += '<form class="nm-form" data-form="device">' +
                     field('Name in the map', 'name', cu.name || '', 'Leave empty to use ' + (h.autoName ? '"' + esc(h.autoName) + '"' : 'the address') + '.', ' maxlength="64"') +
-                    '<div class="form-group"><label>Kind</label><select class="form-control input-sm" name="kind">' + kindOptions(cu.kind || '') + '</select></div>' +
+                    '<div class="form-group"><label>Icon and kind</label><div class="nm-icons">' + iconPicker(cu.kind || '') + '</div></div>' +
                     field('Notes', 'notes', cu.notes || '', '', ' maxlength="256"') +
                     '<button type="submit" class="btn btn-primary btn-xs">Save</button> <button type="button" class="btn btn-default btn-xs" data-cancel>Cancel</button></form>';
             } else {
@@ -970,7 +991,7 @@
                 html += '<div class="alert alert-info nm-apply">' + icon('info-circle') + ' Reservation changes are saved but Kea does not use them yet. ' +
                     '<button type="button" class="btn btn-primary btn-xs" data-kea-apply>Apply</button></div>';
             }
-            html += '<div class="nm-edit-msg"></div></div>';
+            html += '<div class="nm-edit-msg"></div></div>' + fwHtml(h);
             $e.html(html);
         }
 
@@ -996,6 +1017,7 @@
             $(this).serializeArray().forEach(function (f) { v[f.name] = $.trim(f.value); });
             var $btn = $(this).find('[type=submit]').prop('disabled', true);
             var req;
+            if ($(this).data('form') === 'forward') { addForward(h, v, $btn); return; }
             if ($(this).data('form') === 'device') {
                 req = search('netmap/devices/save', {mac: h.mac, name: v.name, kind: v.kind, notes: v.notes});
             } else if (h.res) {
@@ -1046,6 +1068,259 @@
             });
         });
 
+        // ---- firewall: ban, Internet block, port forwards ----------------
+        // Blocking uses MAC address aliases, so a device stays blocked when its address changes.
+        // The two rules are created once, the first time they are needed; afterwards banning and
+        // unbanning only change the alias content.
+        var FW = {
+            banned: {alias: 'netmap_banned', rule: 'Network Map: block banned devices', label: 'banned'},
+            nowan: {alias: 'netmap_nowan', rule: 'Network Map: block Internet access', label: 'without Internet'}
+        };
+        var PRIVATE_ALIAS = 'netmap_private';
+        var fwBusy = false;
+
+        function splitContent(c) {
+            if ($.isPlainObject(c)) { return $.map(c, function (v, k) { return v && v.selected ? k : null; }); }
+            return $.grep(String(c || '').split(/[\s,]+/), Boolean);
+        }
+
+        function loadFirewall() {
+            var none = function () { return $.Deferred().resolve([{rows: []}]); };
+            return $.when(
+                search('firewall/alias/search_item', {current: 1, rowCount: -1, searchPhrase: 'netmap_'}).then(null, none),
+                search('firewall/filter/search_rule', {current: 1, rowCount: -1, searchPhrase: 'Network Map:'}).then(null, none),
+                search('firewall/d_nat/search_rule', {current: 1, rowCount: -1, searchPhrase: ''}).then(null, none)
+            ).then(function (a, r, d) {
+                var fw = {aliases: {}, rules: {}, forwards: []};
+                $.each((a[0] || {}).rows || [], function (_, x) {
+                    fw.aliases[x.name] = {uuid: x.uuid, content: $.map(splitContent(x.content), normMac)};
+                });
+                $.each((r[0] || {}).rows || [], function (_, x) {
+                    $.each(FW, function (key, def) { if (x.description === def.rule) { fw.rules[key] = x.uuid; } });
+                });
+                $.each((d[0] || {}).rows || [], function (_, x) {
+                    if (String(x.uuid).indexOf('automatic') === 0) { return; }
+                    fw.forwards.push({uuid: x.uuid, iface: x['%interface'] || x.interface, proto: x.protocol, port: x['destination.port'],
+                        target: x.target, localPort: x['local-port'], descr: x.descr, disabled: x.disabled === '1',
+                        wan: x.interface === model.wanIf});
+                });
+                model.fw = fw;
+                return $.Deferred().resolve();
+            });
+        }
+
+        function isMember(key, mac) {
+            var a = model.fw.aliases[FW[key].alias];
+            return !!(a && a.content.indexOf(mac) >= 0);
+        }
+
+        function call(path, body) {
+            return search(path, body || {}).then(function (r) {
+                if (r && (r.result === 'failed' || r.status === 'failed')) {
+                    return $.Deferred().reject({responseJSON: r});
+                }
+                return r;
+            });
+        }
+
+        function why(err) {
+            var r = err && (err.responseJSON || err);
+            if (r && r.validations) { return $.map(r.validations, function (v, k) { return k + ': ' + v; }).join('; '); }
+            if (err && err.status === 403) { return 'your account may not change the firewall'; }
+            return (r && (r.message || r.errorMessage)) || (err && err.status ? 'HTTP ' + err.status : 'the firewall refused the change');
+        }
+
+        // create the alias(es) and rule for ``key`` when they do not exist yet
+        function ensureRule(key) {
+            if (model.fw.rules[key]) { return $.Deferred().resolve(false); }
+            var steps = $.Deferred().resolve();
+            if (key === 'nowan' && !model.fw.aliases[PRIVATE_ALIAS]) {
+                steps = steps.then(function () {
+                    return call('firewall/alias/add_item', {alias: {enabled: '1', name: PRIVATE_ALIAS, type: 'network',
+                        content: '10.0.0.0/8\n172.16.0.0/12\n192.168.0.0/16\n100.64.0.0/10',
+                        description: 'Network Map: private networks (not the Internet)'}});
+                });
+            }
+            var interfaces = $.map(model.nets, function (n) { return n.id; }).join(',');
+            var rule = key === 'banned'
+                ? {enabled: '1', action: 'block', quick: '1', interface: interfaces, direction: 'in', ipprotocol: 'inet46', protocol: 'any',
+                    source_net: FW.banned.alias, destination_net: 'any', sequence: '1', log: '1', description: FW.banned.rule}
+                : {enabled: '1', action: 'block', quick: '1', interface: interfaces, direction: 'in', ipprotocol: 'inet', protocol: 'any',
+                    source_net: FW.nowan.alias, destination_net: PRIVATE_ALIAS, destination_not: '1', sequence: '2', log: '1',
+                    description: FW.nowan.rule};
+            return steps.then(function () { return call('firewall/filter/add_rule', {rule: rule}); })
+                .then(function () { return true; });
+        }
+
+        function applyRules() {
+            // apply with the firewall's own safety net: a savepoint rolled back unless confirmed
+            return call('firewall/filter/savepoint').then(function (sp) {
+                return call('firewall/filter/apply/' + encodeURIComponent(sp.revision)).then(function () {
+                    return call('firewall/filter/cancel_rollback/' + encodeURIComponent(sp.revision));
+                });
+            });
+        }
+
+        function setMember(key, mac, on) {
+            var def = FW[key], a = model.fw.aliases[def.alias];
+            var list = $.grep(a ? a.content : [], function (m) { return m !== mac; });
+            if (on) { list.push(mac); }
+            var content = list.join('\n');
+            var created = false;
+            var save = a ? call('firewall/alias/set_item/' + encodeURIComponent(a.uuid), {alias: {content: content}})
+                : call('firewall/alias/add_item', {alias: {enabled: '1', name: def.alias, type: 'mac', content: content,
+                    description: 'Network Map: devices ' + def.label}});
+            return save.then(function () { return on ? ensureRule(key) : false; })
+                .then(function (made) { created = made; return call('firewall/alias/reconfigure'); })
+                .then(function () { return created ? applyRules() : null; });
+        }
+
+        function forwardsOf(h) {
+            return $.grep(model.fw.forwards, function (f) { return h.ips[f.target]; });
+        }
+
+        function fwHtml(h) {
+            var html = '<div class="nm-fw-sec"><h5>Firewall</h5>';
+            $.each([['banned', 'Network access', 'blocked: no traffic through the firewall (Internet, other networks, firewall services)',
+                'allowed', 'Ban', 'Unban'],
+                ['nowan', 'Internet access', 'blocked: local networks only', 'allowed', 'Block Internet', 'Allow Internet']], function (_, x) {
+                var on = isMember(x[0], h.mac);
+                html += '<div class="nm-edit-row nm-fw-row"><div><b>' + esc(x[1]) + ':</b> ' + (on ? '<span class="text-danger">' + esc(x[2]) + '</span>'
+                    : '<span class="text-success">' + esc(x[3]) + '</span>') + '</div><button type="button" class="btn btn-xs ' +
+                    (on ? 'btn-default' : (x[0] === 'banned' ? 'btn-danger' : 'btn-warning')) + '" data-fw="' + x[0] + '" data-on="' + (on ? 0 : 1) + '">' +
+                    icon(on ? 'unlock' : 'ban') + ' ' + esc(on ? x[5] : x[4]) + '</button></div>';
+            });
+            html += '<div class="nm-fw-confirm"></div>';
+            var fwd = forwardsOf(h);
+            html += '<div class="nm-fw-fwd"><b>Port forwards</b>' + (fwd.length ? '<ul class="nm-list">' + $.map(fwd, function (f) {
+                return '<li><div class="nm-l1"><span class="nm-r-name">' + esc(String(f.proto).toUpperCase() + ' ' + f.port) + '</span>' +
+                    '<span class="nm-r-port">' + icon('long-arrow-right') + ' ' + esc(f.target + ':' + (f.localPort || f.port)) + '</span>' +
+                    (f.disabled ? '<span class="label label-default">disabled</span>' : '') +
+                    '<span class="nm-r-rate"><button type="button" class="btn btn-default btn-xs" data-fwd-del="' + esc(f.uuid) + '" title="Delete">' +
+                    icon('trash') + '</button></span></div><div class="nm-l2"><span>' + esc(f.iface) + '</span><span>' + esc(f.descr || '') + '</span></div></li>';
+            }).join('') + '</ul>' : ' <span class="text-muted small">none</span>');
+            if (editing === 'forward') {
+                html += '<form class="nm-form" data-form="forward"><div class="nm-form-row">' +
+                    '<div class="form-group"><label>Protocol</label><select class="form-control input-sm" name="protocol"><option value="tcp">TCP</option>' +
+                    '<option value="udp">UDP</option><option value="tcp/udp">TCP and UDP</option></select></div>' +
+                    field('Internet port', 'port', '', 'A port or a range, e.g. 8443 or 5000-5010.') +
+                    field('Device port', 'local_port', '', 'Empty: the same port.') + '</div>' +
+                    field('Description', 'descr', 'Network Map: ' + (h.name || h.ip), '') +
+                    (h.res ? '' : '<p class="small text-warning">' + icon('exclamation-triangle') + ' The address ' + esc(h.ip) + ' is not reserved: ' +
+                        'the forward stops working when the device gets another address. Reserve it in the DHCP section first.</p>') +
+                    '<p class="small text-muted">Connections from the Internet to the firewall on this port reach ' + esc(h.ip) +
+                    '. The forward is created on the WAN interface and passes its traffic without a separate rule.</p>' +
+                    '<button type="submit" class="btn btn-primary btn-xs">Create port forward</button> ' +
+                    '<button type="button" class="btn btn-default btn-xs" data-cancel>Cancel</button></form>';
+            } else {
+                html += '<div><button type="button" class="btn btn-default btn-xs" data-edit="forward"' + (model.wanIf ? '' : ' disabled') + '>' +
+                    icon('plus') + ' Add port forward</button></div>';
+            }
+            return html + '</div><div class="nm-fw-msg"></div></div>';
+        }
+
+        function fwMessage(kind, text) {
+            $drawer.find('.nm-fw-msg').html('<div class="alert alert-' + kind + ' small">' + text + '</div>');
+        }
+
+        function fwDone(text) {
+            fwBusy = false;
+            return loadFirewall().always(function () { renderEdit(); draw(); fwMessage('success', esc(text)); });
+        }
+
+        // first click shows what will happen, second click does it
+        $drawer.on('click', '[data-fw]', function () {
+            var h = selectedHost(), key = $(this).data('fw'), on = $(this).data('on') === 1;
+            if (!h || fwBusy) { return; }
+            var def = FW[key];
+            var first = on && !model.fw.rules[key];
+            var text = on ? (key === 'banned' ? 'Ban <b>' + esc(h.name || h.ip) + '</b>? Its traffic through the firewall is blocked: Internet, ' +
+                'other networks and services of the firewall such as DNS. Devices on the same network still reach it through the switch.'
+                : 'Block Internet access for <b>' + esc(h.name || h.ip) + '</b>? It can still reach the local networks.')
+                : (key === 'banned' ? 'Unban <b>' + esc(h.name || h.ip) + '</b>?' : 'Allow Internet access for <b>' + esc(h.name || h.ip) + '</b>?');
+            if (first) {
+                text += '<br><span class="text-muted">First use: the rule "' + esc(def.rule) + '" is created on every internal network ' +
+                    'and applied with a rollback savepoint.</span>';
+            }
+            $drawer.find('.nm-fw-confirm').html('<div class="alert alert-warning small">' + text + '<div style="margin-top:6px">' +
+                '<button type="button" class="btn btn-' + (on ? 'danger' : 'primary') + ' btn-xs" data-fw-go="' + key + '" data-on="' + (on ? 1 : 0) +
+                '">Confirm</button> <button type="button" class="btn btn-default btn-xs" data-fw-no>Cancel</button></div></div>');
+        });
+        $drawer.on('click', '[data-fw-no]', function () { $drawer.find('.nm-fw-confirm').empty(); });
+        $drawer.on('click', '[data-fw-go]', function () {
+            var h = selectedHost(), key = $(this).data('fw-go'), on = $(this).data('on') === 1;
+            fwBusy = true;
+            $(this).prop('disabled', true).html(icon('spinner fa-pulse') + ' Applying...');
+            setMember(key, h.mac, on).done(function () {
+                fwDone((h.name || h.ip) + (on ? ' is now ' : ' is no longer ') + FW[key].label + '.');
+            }).fail(function (err) {
+                fwBusy = false;
+                $drawer.find('.nm-fw-confirm').empty();
+                fwMessage('danger', esc(why(err)));
+            });
+        });
+        $drawer.on('click', '[data-fwd-del]', function () {
+            var $b = $(this), uuid = $b.data('fwd-del');
+            if (!$b.data('armed')) { $b.data('armed', true).addClass('btn-danger').html(icon('trash') + ' Delete?'); return; }
+            $b.prop('disabled', true);
+            call('firewall/d_nat/del_rule/' + encodeURIComponent(uuid)).then(function () { return call('firewall/d_nat/apply'); })
+                .done(function () { fwDone('Port forward deleted.'); })
+                .fail(function (err) { fwMessage('danger', esc(why(err))); $b.prop('disabled', false); });
+        });
+
+        function addForward(h, v, $btn) {
+            if (!/^\d{1,5}(-\d{1,5})?$/.test(v.port) || (v.local_port && !/^\d{1,5}$/.test(v.local_port))) {
+                fwMessage('danger', 'Use a port number or a range such as 5000-5010.');
+                $btn.prop('disabled', false);
+                return;
+            }
+            call('firewall/d_nat/add_rule', {rule: {disabled: '0', interface: model.wanIf, ipprotocol: 'inet', protocol: v.protocol,
+                destination: {network: model.wanIf + 'ip', port: v.port}, target: h.ip,
+                'local-port': v.local_port || v.port.split('-')[0], descr: v.descr, pass: 'pass'}})
+                .then(function () { return call('firewall/d_nat/apply'); })
+                .done(function () { editing = null; fwDone('Port forward created.'); })
+                .fail(function (err) { fwMessage('danger', esc(why(err))); $btn.prop('disabled', false); });
+        }
+
+        // ---- restrictions overview (toolbar) -----------------------------
+        function restrictionsHtml() {
+            var rows = [];
+            $.each(FW, function (key, def) {
+                var a = model.fw.aliases[def.alias];
+                $.each(a ? a.content : [], function (_, mac) {
+                    var h = model.hosts[mac];
+                    rows.push('<li><div class="nm-l1"><span class="nm-r-name">' + esc(h ? (h.name || h.ip) : mac) + '</span><span class="nm-r-port">' +
+                        esc(mac + (h && h.ip ? ' · ' + h.ip : '')) + '</span><span class="label label-' + (key === 'banned' ? 'danger' : 'warning') + '">' +
+                        esc(key === 'banned' ? 'banned' : 'no Internet') + '</span><span class="nm-r-rate"><button type="button" class="btn btn-default btn-xs" ' +
+                        'data-unrestrict="' + key + '" data-mac="' + esc(mac) + '">' + icon('unlock') + ' ' + (key === 'banned' ? 'Unban' : 'Allow Internet') +
+                        '</button></span></div></li>');
+                });
+            });
+            var fwd = $.map(model.fw.forwards, function (f) {
+                var h = model.byIp[f.target];
+                return '<li><div class="nm-l1"><span class="nm-r-name">' + esc(String(f.proto).toUpperCase() + ' ' + f.port) + '</span><span class="nm-r-port">' +
+                    icon('long-arrow-right') + ' ' + esc((h ? (h.name || f.target) : f.target) + ':' + (f.localPort || f.port)) + ' · ' + esc(f.iface) + '</span>' +
+                    (f.disabled ? '<span class="label label-default">disabled</span>' : '') + '</div><div class="nm-l2"><span>' + esc(f.descr || '') + '</span></div></li>';
+            });
+            return '<div class="nm-restrict-cols"><div><h5>Blocked devices</h5>' + (rows.length ? '<ul class="nm-list">' + rows.join('') + '</ul>'
+                : '<p class="small text-muted">No device is banned or kept off the Internet.</p>') + '</div><div><h5>Port forwards</h5>' +
+                (fwd.length ? '<ul class="nm-list">' + fwd.join('') + '</ul>' : '<p class="small text-muted">None.</p>') + '</div></div>';
+        }
+
+        $root.on('click', '.nm-restrict-btn', function () {
+            var $box = $root.find('.nm-restrict');
+            $box.toggle();
+            if ($box.is(':visible')) { $box.html(restrictionsHtml()); }
+        });
+        $root.on('click', '[data-unrestrict]', function () {
+            var $b = $(this), key = $b.data('unrestrict'), mac = $b.data('mac');
+            if (!$b.data('armed')) { $b.data('armed', true).addClass('btn-primary').html(icon('unlock') + ' Confirm'); return; }
+            $b.prop('disabled', true).html(icon('spinner fa-pulse'));
+            setMember(key, mac, false).always(function () {
+                loadFirewall().always(function () { $root.find('.nm-restrict').html(restrictionsHtml()); draw(); if (selected) { renderEdit(); } });
+            });
+        });
+
         // ---- polling ----------------------------------------------------
         function status(text) { $root.find('.nm-status').html(text); }
 
@@ -1059,7 +1334,8 @@
                 get('instanton/status/topology').then(null, function () { return $.Deferred().resolve([null]); }),
                 get('netmap/devices/list').then(null, function () { return $.Deferred().resolve([{devices: []}]); }),
                 search('kea/dhcpv4/search_reservation').then(null, function () { return $.Deferred().resolve([{rows: []}]); }),
-                search('kea/dhcpv4/search_subnet').then(null, function () { return $.Deferred().resolve([{rows: []}]); })
+                search('kea/dhcpv4/search_subnet').then(null, function () { return $.Deferred().resolve([{rows: []}]); }),
+                loadFirewall()
             ).done(function (ifs, disc, leases, arp, icClients, icTopo, names, res, subnets) {
                 model.loadNames((names[0] || {}).devices, (res[0] || {}).rows, (subnets[0] || {}).rows);
                 model.loadInterfaces((ifs[0] || {}).rows);
