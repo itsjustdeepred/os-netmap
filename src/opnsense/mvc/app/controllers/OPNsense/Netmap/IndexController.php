@@ -40,4 +40,10 @@ class IndexController extends \OPNsense\Base\IndexController
         $this->view->assetVersion = $mtime;
         $this->view->pick('OPNsense/Netmap/index');
     }
+
+    public function settingsAction()
+    {
+        $this->view->settingsForm = $this->getForm('settings');
+        $this->view->pick('OPNsense/Netmap/settings');
+    }
 }

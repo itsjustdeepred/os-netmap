@@ -1,0 +1,76 @@
+<form>
+    <field>
+        <type>header</type>
+        <label>Map</label>
+    </field>
+    <field>
+        <id>netmap.general.refresh</id>
+        <label>Refresh (seconds)</label>
+        <type>text</type>
+        <help>How often the map reads the state table for the live traffic. Shorter is smoother but asks more of the firewall; 10 seconds suits most networks.</help>
+    </field>
+    <field>
+        <id>netmap.general.hidden_networks</id>
+        <label>Hidden networks</label>
+        <type>select_multiple</type>
+        <style>tokenize</style>
+        <allownew>true</allownew>
+        <help>Interface names (for example opt5) of networks the map should not show. They can still be shown with the network chips.</help>
+    </field>
+    <field>
+        <id>netmap.general.new_devices</id>
+        <label>Flag new devices</label>
+        <type>checkbox</type>
+        <help>Mark devices that were never approved as new, with Approve and Ban buttons.</help>
+    </field>
+    <field>
+        <type>header</type>
+        <label>Actions</label>
+    </field>
+    <field>
+        <id>netmap.general.firewall_actions</id>
+        <label>Firewall actions</label>
+        <type>checkbox</type>
+        <help>Show Ban, Block Internet, schedules, port forwards and the rule switches in the device panel. Untick for a read-only map; the changes always use the privileges of the logged-in user.</help>
+    </field>
+    <field>
+        <id>netmap.general.scans</id>
+        <label>Port scans</label>
+        <type>checkbox</type>
+        <help>Show the Quick and Full scan buttons (nmap on the firewall). Results already stored stay visible.</help>
+    </field>
+    <field>
+        <type>header</type>
+        <label>AdGuard Home</label>
+    </field>
+    <field>
+        <id>netmap.adguard.enabled</id>
+        <label>Use AdGuard Home</label>
+        <type>checkbox</type>
+        <help>Show the domains each device asks for, the ones AdGuard blocked, and a button to block DNS for a device (AdGuard "disallowed clients").</help>
+    </field>
+    <field>
+        <id>netmap.adguard.url</id>
+        <label>Address</label>
+        <type>text</type>
+        <help>Web interface of AdGuard Home as seen from the firewall, for example http://127.0.0.1:3000 when it runs on the firewall.</help>
+    </field>
+    <field>
+        <id>netmap.adguard.username</id>
+        <label>User name</label>
+        <type>text</type>
+        <help>An AdGuard Home user. Stored in the firewall configuration.</help>
+    </field>
+    <field>
+        <id>netmap.adguard.password</id>
+        <label>Password</label>
+        <type>password</type>
+    </field>
+    <field>
+        <id>netmap.adguard.verify_tls</id>
+        <label>Verify certificate</label>
+        <type>checkbox</type>
+        <advanced>true</advanced>
+        <help>Check the HTTPS certificate when the address starts with https.</help>
+    </field>
+</form>

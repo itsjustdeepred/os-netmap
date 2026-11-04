@@ -16,15 +16,19 @@
             <pattern>api/netmap/scan/status*</pattern>
             <pattern>api/netmap/scan/list*</pattern>
             <pattern>api/netmap/devices/list*</pattern>
+            <pattern>api/netmap/settings/options*</pattern>
+            <pattern>api/netmap/adguard/queries*</pattern>
             <pattern>api/kea/dhcpv4/search_reservation*</pattern>
             <pattern>api/kea/dhcpv4/search_subnet*</pattern>
         </patterns>
     </page-reporting-netmap>
     <page-reporting-netmap-edit>
         <name>Reporting: Network Map: edit devices</name>
-        <description>Give devices a name, a kind and notes in the network map. Changing DHCP reservations needs the Kea DHCP privileges as well.</description>
+        <description>Give devices a name, a kind and notes, change the Network Map settings and block DNS for a device in AdGuard Home. Changing DHCP reservations and firewall rules needs the privileges of those pages as well.</description>
         <patterns>
             <pattern>api/netmap/devices/*</pattern>
+            <pattern>api/netmap/adguard/*</pattern>
+            <pattern>api/netmap/settings/*</pattern>
         </patterns>
     </page-reporting-netmap-edit>
     <page-reporting-netmap-scan>

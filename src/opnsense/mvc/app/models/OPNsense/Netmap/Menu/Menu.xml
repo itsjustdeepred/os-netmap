@@ -1,5 +1,6 @@
 <menu>
     <NetworkMap VisibleName="Network Map" cssClass="fa fa-map" order="45">
-        <Dashboard VisibleName="Dashboard" order="10" url="/ui/netmap/"/>
+        <Dashboard VisibleName="Dashboard" cssClass="fa fa-map-marker fa-fw" order="10" url="/ui/netmap/"/>
+        <Settings VisibleName="Settings" cssClass="fa fa-sliders fa-fw" order="20" url="/ui/netmap/index/settings"/>
     </NetworkMap>
 </menu>

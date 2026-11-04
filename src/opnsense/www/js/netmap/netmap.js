@@ -453,6 +453,8 @@
         try { $.extend(filters, JSON.parse(window.localStorage.getItem('netmap.filters') || '{}'), {q: ''}); } catch (e) { /* ignore */ }
         var selected = null;
         var timers = {};
+        // Network Map > Settings
+        var opts = {refresh: EVERY.states, new_devices: true, firewall_actions: true, scans: true, hidden_networks: [], adguard: false};
 
         $root.html(
             '<div class="nm-toolbar">' +
@@ -770,8 +772,9 @@
         function openDrawer(mac) {
             selected = mac;
             editing = null;
-            drawerData = {rows: [], prev: {}, history: [], log: [], scan: null, hist: null};
+            drawerData = {rows: [], prev: {}, history: [], log: [], scan: null, hist: null, dns: null};
             loadHistory();
+            loadAdguard();
             $drawer.html('<div class="nm-dtop"></div><div class="nm-dedit"></div><div class="nm-dlive"></div>');
             $drawer.addClass('nm-open').attr('aria-hidden', 'false');
             renderEdit();
@@ -868,7 +871,8 @@
 
         function scanHtml(h) {
             var sc = drawerData.scan;
-            var buttons = '<div class="nm-scan-tools"><button type="button" class="btn btn-default btn-xs" data-scan="quick" ' +
+            if (!opts.scans && (!sc || sc.status === 'none')) { return '<p class="small text-muted">Port scans are turned off in Settings.</p>'; }
+            var buttons = !opts.scans ? '' : '<div class="nm-scan-tools"><button type="button" class="btn btn-default btn-xs" data-scan="quick" ' +
                 'title="The 200 most common ports with service names, about a minute">' + icon('search') + ' Quick scan</button> ' +
                 '<button type="button" class="btn btn-default btn-xs" data-scan="full" title="Every TCP port, service versions and ' +
                 'operating system, several minutes">' + icon('crosshairs') + ' Full scan</button></div>';
@@ -1071,6 +1075,8 @@
                     return f[1] ? '<tr><th>' + esc(f[0]) + '</th><td>' + f[1] + '</td></tr>' : '';
                 }).join('') + '</tbody></table>' +
                 '<h5>Open ports</h5><div class="nm-scan">' + scanHtml(h) + '</div>' +
+                (opts.adguard ? '<h5>DNS <span class="small text-muted">from AdGuard Home</span> <a href="#" class="small" data-dns-reload>' +
+                    icon('refresh') + '</a></h5><div class="nm-dns">' + adguardHtml(h) + '</div>' : '') +
                 '<h5>History <span class="small text-muted">from Insight (NetFlow)</span> <select class="form-control input-sm nm-hist-span">' +
                 '<option value="1"' + (histSpan === 1 ? ' selected' : '') + '>last 24 hours</option><option value="7"' + (histSpan === 7 ? ' selected' : '') +
                 '>last 7 days</option><option value="30"' + (histSpan === 30 ? ' selected' : '') + '>last 30 days</option></select></h5>' +
@@ -1123,7 +1129,7 @@
             var $e = $drawer.find('.nm-dedit');
             if (!h || !$e.length) { return; }
             var cu = h.custom || {}, res = h.res, html = '';
-            if (!h.approved) {
+            if (!h.approved && opts.new_devices) {
                 html += '<div class="alert alert-info nm-new-alert">' + icon('star') + ' <b>Not approved yet.</b> ' +
                     (h.firstSeen ? 'First seen ' + esc(ago(h.firstSeen)) + '. ' : '') + 'Approve it if you know it, ban it if you do not.' +
                     '<div class="nm-new-actions"><button type="button" class="btn btn-success btn-xs" data-approve>' + icon('check') + ' Approve</button> ' +
@@ -1384,6 +1390,7 @@
         }
 
         function fwHtml(h) {
+            if (!opts.firewall_actions) { return ''; }
             var html = '<div class="nm-fw-sec"><h5>Firewall</h5>';
             $.each([['banned', 'Network access', 'blocked: no traffic through the firewall (Internet, other networks, firewall services)',
                 'allowed', 'Ban', 'Unban'],
@@ -1618,8 +1625,8 @@
                 var link = '/ui/firewall/filter/#' + (h.net ? 'interface=' + encodeURIComponent(h.net.id) + '&' : '') +
                     'search=' + encodeURIComponent(x.description || '');
                 return '<li class="' + (on ? '' : 'nm-rule-off') + '"><div class="nm-l1">' +
-                    '<label class="nm-switch" title="' + (on ? 'Disable' : 'Enable') + ' this rule"><input type="checkbox" data-rule-toggle="' +
-                    esc(x.uuid) + '"' + (on ? ' checked' : '') + '><span></span></label>' +
+                    (!opts.firewall_actions ? '' : '<label class="nm-switch" title="' + (on ? 'Disable' : 'Enable') + ' this rule"><input type="checkbox" data-rule-toggle="' +
+                    esc(x.uuid) + '"' + (on ? ' checked' : '') + '><span></span></label>') +
                     '<span class="label label-' + act[0] + '">' + act[1] + '</span>' +
                     '<a class="nm-r-name" href="' + esc(link) + '" target="_blank" title="Open in Firewall > Rules">' +
                     esc(x.description || ('rule ' + it.order)) + ' ' + icon('external-link') + '</a>' +
@@ -1647,6 +1654,57 @@
                         .then(function () { return call('firewall/filter/apply'); })
                         .done(function () { loadFirewall().always(function () { renderDrawer(); }); })
                         .fail(function (err) { $c.prop('disabled', false); fwMessage('danger', esc(why(err))); });
+                });
+        });
+
+        // ---- DNS from AdGuard Home ------------------------------------------
+        function loadAdguard() {
+            var h = selectedHost();
+            if (!opts.adguard || !h || !h.ip) { return; }
+            var mac = selected;
+            drawerData.dns = {loading: true};
+            get('netmap/adguard/queries/' + encodeURIComponent(h.ip)).done(function (d) {
+                if (selected === mac) { drawerData.dns = d || {}; renderDrawer(); }
+            }).fail(function (xhr) {
+                if (selected === mac) { drawerData.dns = {status: 'error', message: 'HTTP ' + xhr.status}; renderDrawer(); }
+            });
+        }
+
+        function adguardHtml(h) {
+            var d = drawerData.dns;
+            if (!d || d.loading) { return '<p class="small text-muted">' + icon('spinner fa-pulse') + ' asking AdGuard Home...</p>'; }
+            if (d.status !== 'ok') { return '<p class="small text-danger">' + icon('exclamation-triangle') + ' ' + esc(d.message || 'no answer') + '</p>'; }
+            var html = '<div class="nm-edit-row nm-fw-row">' + (d.dns_blocked
+                ? '<button type="button" class="btn btn-xs btn-success" data-dns-block="0">' + icon('unlock') + ' Allow DNS</button>' +
+                  '<div><b>DNS:</b> <span class="text-danger">blocked in AdGuard Home</span></div>'
+                : '<button type="button" class="btn btn-xs btn-warning" data-dns-block="1">' + icon('ban') + ' Block DNS</button>' +
+                  '<div><b>DNS:</b> <span class="text-success">answered</span></div>') + '</div>';
+            html += '<p class="small">' + esc(d.total) + ' queries in the latest log entries, <span class="' + (d.blocked ? 'text-danger' : '') + '">' +
+                esc(d.blocked) + ' blocked</span>' + (d.since ? ' <span class="text-muted">since ' + esc(new Date(d.since).toLocaleString()) + '</span>' : '') + '</p>';
+            if (!(d.domains || []).length) { return html + '<p class="small text-muted">No queries from this address in the AdGuard Home log.</p>'; }
+            var max = Math.max.apply(null, $.map(d.domains, function (x) { return x.count; }));
+            return html + '<ul class="nm-list nm-dns-list">' + $.map(d.domains, function (x) {
+                return '<li><div class="nm-l1"><span class="nm-r-name">' + esc(x.name) + '</span>' +
+                    (x.blocked ? '<span class="label label-danger">blocked</span>' : '') + '<span class="nm-r-rate small">' + esc(x.count) + '</span></div>' +
+                    '<div class="nm-hbar"><i style="width:' + Math.max(2, Math.round(x.count * 100 / max)) + '%' + (x.blocked ? ';background:#c4473b' : '') + '"></i></div>' +
+                    (x.rule ? '<div class="nm-l2"><span class="nm-rule nm-rule-block">' + icon('ban') + ' ' + esc(x.rule) + '</span></div>' : '') + '</li>';
+            }).join('') + '</ul>';
+        }
+
+        $drawer.on('click', '[data-dns-reload]', function (e) { e.preventDefault(); loadAdguard(); renderDrawer(); });
+        $drawer.on('click', '[data-dns-block]', function () {
+            var h = selectedHost(), block = $(this).data('dns-block') === 1;
+            confirmDialog(block ? 'Block DNS in AdGuard Home' : 'Allow DNS in AdGuard Home',
+                '<p>' + (block ? 'Block' : 'Allow') + ' DNS for <b>' + esc(h.name || h.ip) + '</b> (' + esc(h.ip) + ')?</p><ul class="nm-modal-points">' +
+                (block ? '<li>AdGuard Home stops answering its DNS queries, so it cannot find names on the Internet or the local network.</li>' +
+                    '<li>The block is on the address ' + esc(h.ip) + ': reserve it in Kea, or the block moves to another device when the address changes.</li>' +
+                    '<li>A device using another DNS server is not affected; Ban stops it at the firewall instead.</li>'
+                    : '<li>The address is removed from the AdGuard Home disallowed clients.</li>') + '</ul>',
+                block ? 'Block DNS' : 'Allow DNS', block).done(function () {
+                    search('netmap/adguard/block/' + encodeURIComponent(h.ip) + '/' + (block ? '1' : '0'), {}).done(function (r) {
+                        if (!r || r.status !== 'ok') { fwMessage('danger', esc((r && r.message) || 'AdGuard Home refused the change')); }
+                        loadAdguard();
+                    });
                 });
         });
 
@@ -1710,6 +1768,7 @@
         var onlyNew = false;
 
         function anyApproved() {
+            if (!opts.new_devices) { return false; }
             for (var mac in model.custom) { if (model.custom[mac].approved) { return true; } }
             return false;
         }
@@ -1727,6 +1786,7 @@
             var $a = $root.find('.nm-adopt');
             $root.find('.nm-new-count').text(anyApproved() && fresh.length ? fresh.length : '');
             $root.find('.nm-new-btn').toggleClass('active', onlyNew);
+            if (!opts.new_devices) { $a.empty(); $root.find('.nm-new-btn').hide(); return; }
             if (anyApproved() || !fresh.length) { $a.empty(); return; }
             $a.html('<div class="alert alert-info nm-adopt-box">' + icon('star') + ' <b>Know your network.</b> Approve the ' + esc(fresh.length) +
                 ' devices online now: from then on, every device that joins for the first time is marked <span class="nm-new-tag">new</span> ' +
@@ -1881,7 +1941,13 @@
         syncToolbar();
         $stage.html('<div class="nm-loading">' + icon('spinner fa-pulse') + '<p>Reading the firewall…</p></div>');
         status(icon('spinner fa-pulse') + ' reading the firewall...');
-        loadHosts().then(function () {
+        get('netmap/settings/options').then(function (o) {
+            $.extend(opts, o || {});
+            EVERY.states = Math.max(5, +opts.refresh || EVERY.states);
+            $.each(opts.hidden_networks || [], function (_, id) { if (filters.nets[id] === undefined) { filters.nets[id] = true; } });
+        }, function () { return $.Deferred().resolve(); }).then(function () {
+            return loadHosts();
+        }).then(function () {
             return $.when(loadStates(), loadLog(), loadDns());
         }).always(function () {
             loaded = true;

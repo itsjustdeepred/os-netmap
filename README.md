@@ -61,6 +61,14 @@ The page is under **Network Map > Dashboard** in the main menu.
 * **Wake-on-LAN** – a *Wake* button in the device panel (needs os-wol).
 * **History** – traffic of the device over the last 24 hours, 7 or 30
   days from Insight (NetFlow), with the remote hosts it talked to most.
+* **Settings** (Network Map > Settings) – refresh interval, networks hidden
+  by default, and switches for new-device flags, firewall actions and port
+  scans (turn them off for a read-only map).
+* **DNS from AdGuard Home** (device panel, when set up in Settings) – the
+  domains the device asked for in the latest query log entries, the ones
+  AdGuard Home blocked with the rule, and *Block DNS* / *Allow DNS* through
+  the AdGuard Home disallowed clients. The firewall talks to AdGuard Home,
+  so its password never reaches the browser.
 * **Icon** – the kind of a device, and so its icon, can be chosen from a
   grid in the rename form.
 * **Open ports** (device panel) – a Fing-like port scan with nmap running
@@ -91,6 +99,8 @@ Only core OPNsense APIs, read from the browser:
 | Names, kinds, notes | `netmap/devices/{list,save}` (this plugin) |
 | Bans, Internet block | `firewall/alias/{search,add,set}_item`, `firewall/alias/reconfigure`, `firewall/filter/{search,add}_rule`, `firewall/filter/apply` |
 | Rules of a device | `firewall/filter/search_rule`, `firewall/filter/toggle_rule`, `firewall/filter/apply`, `firewall/alias/search_item` |
+| AdGuard Home | `netmap/adguard/{test,queries,block}` (this plugin, AdGuard Home `/control/querylog`, `/control/access/*`) |
+| Settings | `netmap/settings/{get,set,options}` (this plugin) |
 | Wake-on-LAN | `wol/wol/set` (os-wol) |
 | History | `diagnostics/networkinsight/top/FlowSourceAddrDetails` |
 | Port forwards | `firewall/d_nat/{search,add,del}_rule`, `firewall/d_nat/apply` |

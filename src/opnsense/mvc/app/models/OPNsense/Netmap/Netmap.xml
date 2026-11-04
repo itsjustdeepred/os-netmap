@@ -1,8 +1,51 @@
 <model>
     <mount>//OPNsense/netmap</mount>
-    <version>1.2.0</version>
+    <version>1.3.0</version>
     <description>Network map: names, kinds and notes of devices</description>
     <items>
+        <general>
+            <refresh type="IntegerField">
+                <Default>10</Default>
+                <MinimumValue>5</MinimumValue>
+                <MaximumValue>120</MaximumValue>
+                <Required>Y</Required>
+                <ValidationMessage>Between 5 and 120 seconds.</ValidationMessage>
+            </refresh>
+            <new_devices type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </new_devices>
+            <firewall_actions type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </firewall_actions>
+            <scans type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </scans>
+            <hidden_networks type="CSVListField">
+                <Mask>/^[a-z0-9_]{0,32}$/</Mask>
+            </hidden_networks>
+        </general>
+        <adguard>
+            <enabled type="BooleanField">
+                <Default>0</Default>
+                <Required>Y</Required>
+            </enabled>
+            <url type="UrlField">
+                <ValidationMessage>For example http://127.0.0.1:3000</ValidationMessage>
+            </url>
+            <username type="TextField">
+                <Mask>/^[^\s]{0,64}$/</Mask>
+            </username>
+            <password type="TextField">
+                <Mask>/^[^\n\r]{0,128}$/</Mask>
+            </password>
+            <verify_tls type="BooleanField">
+                <Default>0</Default>
+                <Required>Y</Required>
+            </verify_tls>
+        </adguard>
         <devices>
             <device type="ArrayField">
                 <mac type="MacAddressField">
