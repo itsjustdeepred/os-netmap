@@ -273,3 +273,5 @@
 .nm-loading p, .nm-empty p { margin: 14px 0 10px; font-size: 15px; }
 .nm-resolve-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: -2px 0 8px; font-size: 13px; }
 .nm-resolve-row .small { flex-basis: 100%; padding-left: 38px; margin-top: -4px; }
+.nm-status-head { font-size: 13px; font-weight: normal; margin-left: 12px; vertical-align: middle; color: #8a8f96; }
+.nm-status-head .fa-circle { color: #2e9e6b; font-size: 9px; animation: nm-pulse 2s infinite; }

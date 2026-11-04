@@ -1786,7 +1786,13 @@
         });
 
         // ---- polling ----------------------------------------------------
-        function status(text) { $root.find('.nm-status').html(text); }
+        // the live status sits next to the page title when the theme has one, otherwise in the toolbar
+        var $title = $('.page-content-head h1').first();
+        if ($title.length) {
+            $title.append(' <small class="nm-status nm-status-head"></small>');
+            $root.find('.nm-toolbar .nm-status').remove();
+        }
+        function status(text) { $('.nm-status').html(text); }
 
         // "live · updated 4 s ago", refreshed every second
         var updatedAt = 0;
