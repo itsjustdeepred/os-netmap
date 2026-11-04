@@ -51,22 +51,37 @@ class ScanController extends ApiControllerBase
         return json_decode($response, true) ?? ['status' => 'error', 'message' => $response];
     }
 
-    public function startAction($ip = '', $profile = 'quick')
+    private function validMac($mac)
+    {
+        return preg_match('/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/', $mac) === 1;
+    }
+
+    /**
+     * Results belong to the device (MAC address); the scan targets its current address.
+     */
+    public function startAction($mac = '', $ip = '', $profile = 'quick')
     {
         if (!$this->request->isPost()) {
             return ['status' => 'error', 'message' => 'POST required'];
         }
-        if (!$this->valid($ip) || !in_array($profile, ['quick', 'full'], true)) {
+        $mac = strtolower($mac);
+        if (!$this->validMac($mac) || !$this->valid($ip) || !in_array($profile, ['quick', 'full'], true)) {
             return ['status' => 'error', 'message' => 'invalid request'];
         }
-        return $this->run('start', [$ip, $profile]);
+        return $this->run('start', [$mac, $ip, $profile]);
     }
 
-    public function statusAction($ip = '')
+    public function statusAction($mac = '')
     {
-        if (!$this->valid($ip)) {
-            return ['status' => 'error', 'message' => 'invalid address'];
+        $mac = strtolower($mac);
+        if (!$this->validMac($mac)) {
+            return ['status' => 'error', 'message' => 'invalid MAC address'];
         }
-        return $this->run('status', [$ip]);
+        return $this->run('status', [$mac]);
+    }
+
+    public function listAction()
+    {
+        return $this->run('list', []);
     }
 }

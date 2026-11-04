@@ -471,6 +471,7 @@
             '  <select class="form-control input-sm nm-group" style="display:none"><option value="">all groups</option></select>' +
             '  <label class="nm-check"><input type="checkbox" class="nm-active"> talking now</label>' +
             '  <label class="nm-check"><input type="checkbox" class="nm-offline"> offline too</label>' +
+            '  <label class="nm-check" title="Devices with open ports at their last scan"><input type="checkbox" class="nm-withports"> open ports</label>' +
             '  <select class="form-control input-sm nm-sort"><option value="traffic">by traffic</option><option value="name">by name</option>' +
             '    <option value="ip">by address</option></select>' +
             '  <button type="button" class="btn btn-default btn-sm nm-new-btn" title="Devices not approved yet">' +
@@ -512,6 +513,7 @@
         $root.on('change', '.nm-type', function () { filters.type = $(this).val(); draw(); });
         $root.on('change', '.nm-active', function () { filters.active = this.checked; save(); draw(); });
         $root.on('change', '.nm-offline', function () { filters.offline = this.checked; save(); draw(); });
+        $root.on('change', '.nm-withports', function () { filters.ports = this.checked; draw(); });
         $root.on('change', '.nm-sort', function () { filters.sort = $(this).val(); save(); draw(); });
         $root.on('click', '.nm-chip', function () {
             var id = $(this).data('net');
@@ -531,6 +533,7 @@
             if (filters.group && h.group !== filters.group) { return false; }
             if (filters.active && !(st.traffic.up + st.traffic.down > 0)) { return false; }
             if (onlyNew && h.approved) { return false; }
+            if (filters.ports && !(model.scans && model.scans[h.mac] && model.scans[h.mac].open.length)) { return false; }
             if (filters.q) {
                 var hay = [h.name, h.ip, h.mac, h.vendor, TYPES[h.type][0], h.ic && h.ic.ssid, h.ic && h.ic.ap].join(' ').toLowerCase();
                 if (hay.indexOf(filters.q) < 0) { return false; }
@@ -579,6 +582,10 @@
                 '<span class="nm-rate">' + (live > 0 ? icon('arrow-down') + esc(rate(t.down)) + ' ' + icon('arrow-up') + esc(rate(t.up))
                     : (t.conns ? esc(t.conns) + ' conn.' : (h.online ? 'idle' : 'offline ' + esc(ago(h.lastSeen))))) + '</span></span>' +
                 '<span class="nm-side">' + linkBadge(h) +
+                (model.scans && model.scans[h.mac] && model.scans[h.mac].open.length ? '<span class="nm-ports-tag" title="' +
+                    esc(model.scans[h.mac].open.length + ' open ports at the last scan (' + ago(model.scans[h.mac].finished) + '): ' +
+                        $.map(model.scans[h.mac].open, function (p) { return p.port + '/' + p.proto + (p.service ? ' ' + p.service : ''); }).join(', ')) +
+                    '">' + icon('door-open') + esc(model.scans[h.mac].open.length) + '</span>' : '') +
                 (st.blocked.count ? '<span class="nm-blk" title="' + esc(st.blocked.count + ' packets blocked by the firewall, last ' +
                     ago(st.blocked.last)) + '">' + icon('ban') + esc(st.blocked.count) + '</span>' : '') + '</span>' +
                 '<span class="nm-meter"><i style="width:' + Math.min(100, level * 25) + '%"></i></span></div>';
@@ -786,9 +793,16 @@
             var h = model.hosts[selected];
             if (!h || !h.ip) { return; }
             var mac = selected;
-            get('netmap/scan/status/' + encodeURIComponent(h.ip)).done(function (d) {
+            get('netmap/scan/status/' + encodeURIComponent(h.mac)).done(function (d) {
                 if (selected !== mac) { return; }
                 drawerData.scan = d;
+                if (d && d.status === 'done') {
+                    // keep the badge on the map card in step with the scan just read
+                    model.scans = model.scans || {};
+                    model.scans[mac] = {mac: mac, finished: d.finished, open: $.map(d.ports || [], function (p) {
+                        return {port: p.port, proto: p.proto, service: p.service};
+                    })};
+                }
                 renderDrawer();
                 if (d && d.status === 'running') { timers.scan = setTimeout(loadScan, 3000); }
             }).fail(function (xhr) {
@@ -801,7 +815,7 @@
             if (!h || !h.ip) { return; }
             drawerData.scan = {status: 'running', profile: profile, started: Date.now() / 1000};
             renderDrawer();
-            search('netmap/scan/start/' + encodeURIComponent(h.ip) + '/' + profile, {}).done(function (d) {
+            search('netmap/scan/start/' + encodeURIComponent(h.mac) + '/' + encodeURIComponent(h.ip) + '/' + profile, {}).done(function (d) {
                 drawerData.scan = d;
                 renderDrawer();
                 if (d && d.status === 'running') { timers.scan = setTimeout(loadScan, 3000); }
@@ -813,6 +827,34 @@
         }
 
         $drawer.on('click', '[data-scan]', function () { startScan($(this).data('scan')); });
+
+        function portSet(scan) {
+            var out = {};
+            $.each((scan && scan.ports) || [], function (_, p) { out[p.port + '/' + p.proto] = p.service || ''; });
+            return out;
+        }
+
+        // earlier scans of the device, each with what changed compared with the scan before it
+        function scanHistoryHtml(sc) {
+            var list = [sc].concat(sc.history || []);
+            if (list.length < 2) { return ''; }
+            var rows = [];
+            for (var i = 1; i < list.length; i++) {
+                var newer = portSet(list[i - 1]), older = portSet(list[i]);
+                var opened = $.grep(Object.keys(newer), function (k) { return older[k] === undefined; });
+                var closed = $.grep(Object.keys(older), function (k) { return newer[k] === undefined; });
+                rows.push('<li><div class="nm-l1"><span class="nm-r-name small">' + esc(new Date((list[i].finished || 0) * 1000).toLocaleString()) +
+                    '</span><span class="nm-r-port">' + esc(list[i].profile || '') + (list[i].ip ? ' · ' + esc(list[i].ip) : '') + '</span>' +
+                    '<span class="nm-r-rate small">' + esc(Object.keys(older).length) + ' open</span></div>' +
+                    '<div class="nm-l2">' + (opened.length || closed.length ? $.map(opened, function (k) {
+                        return '<span class="text-warning">' + icon('plus') + ' ' + esc(k) + ' opened since</span>';
+                    }).join('') + $.map(closed, function (k) {
+                        return '<span class="text-success">' + icon('minus') + ' ' + esc(k) + ' closed since</span>';
+                    }).join('') : '<span>no change in the next scan</span>') + '</div></li>');
+            }
+            return '<details class="nm-scan-hist"><summary class="small">' + esc(list.length - 1) + ' earlier scan' +
+                (list.length > 2 ? 's' : '') + '</summary><ul class="nm-list">' + rows.join('') + '</ul></details>';
+        }
 
         function scanHtml(h) {
             var sc = drawerData.scan;
@@ -834,9 +876,14 @@
             var html = buttons;
             if (sc.status === 'error') { html += '<p class="text-danger small">' + icon('exclamation-triangle') + ' ' + esc(sc.message || 'scan failed') + '</p>'; }
             if (sc.status === 'done') {
+                var earlier = (sc.history || [])[0];
                 var prev = {};
-                $.each(((sc.previous || {}).ports) || [], function (_, p) { prev[p.proto + p.port] = 1; });
-                var hasPrev = !!(sc.previous && sc.previous.ports);
+                $.each((earlier && earlier.ports) || [], function (_, p) { prev[p.proto + p.port] = 1; });
+                var hasPrev = !!(earlier && earlier.ports);
+                if (sc.seen_mac && sc.seen_mac !== h.mac) {
+                    html += '<p class="small text-warning">' + icon('exclamation-triangle') + ' During this scan ' + esc(sc.ip) +
+                        ' answered with another MAC address (' + esc(sc.seen_mac) + '): the results may belong to another device.</p>';
+                }
                 html += '<p class="small text-muted">' + esc(sc.profile === 'full' ? 'Full' : 'Quick') + ' scan ' + esc(ago(sc.finished)) +
                     (sc.elapsed ? ', ' + esc(Math.round(sc.elapsed)) + ' s' : '') + (sc.up === false ? ' &middot; the device did not answer' : '') +
                     (sc.closed ? ' &middot; ' + esc(sc.closed) + ' ports closed or filtered' : '') + '</p>';
@@ -855,6 +902,7 @@
                         ((p.product || p.version || p.extra) ? '<div class="nm-l2"><span>' + esc([p.product, p.version, p.extra ? '(' + p.extra + ')' : '']
                             .filter(Boolean).join(' ')) + '</span></div>' : '') + '</li>';
                 }).join('') + '</ul>' : '<p class="small text-success">' + icon('check') + ' No open ports found.</p>';
+                html += scanHistoryHtml(sc);
             }
             return html + note;
         }
@@ -1753,6 +1801,11 @@
                 get('instanton/status/clients').then(null, function () { return $.Deferred().resolve([null]); }),
                 get('instanton/status/topology').then(null, function () { return $.Deferred().resolve([null]); }),
                 get('netmap/devices/list').then(null, function () { return $.Deferred().resolve([{devices: []}]); }),
+                get('netmap/scan/list').then(function (d) {
+                    var byMac = {};
+                    $.each((d && d.devices) || [], function (_, x) { byMac[x.mac] = x; });
+                    model.scans = byMac;
+                }, function () { return $.Deferred().resolve(); }),
                 search('kea/dhcpv4/search_reservation').then(null, function () { return $.Deferred().resolve([{rows: []}]); }),
                 search('kea/dhcpv4/search_subnet').then(null, function () { return $.Deferred().resolve([{rows: []}]); }),
                 loadFirewall()

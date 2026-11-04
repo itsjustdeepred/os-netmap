@@ -14,6 +14,7 @@
             <pattern>api/unbound/diagnostics/dumpcache*</pattern>
             <pattern>api/diagnostics/dns/reverse_lookup*</pattern>
             <pattern>api/netmap/scan/status*</pattern>
+            <pattern>api/netmap/scan/list*</pattern>
             <pattern>api/netmap/devices/list*</pattern>
             <pattern>api/kea/dhcpv4/search_reservation*</pattern>
             <pattern>api/kea/dhcpv4/search_subnet*</pattern>

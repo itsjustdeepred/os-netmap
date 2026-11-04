@@ -67,7 +67,10 @@ The page is under **Network Map > Dashboard** in the main menu.
   on the firewall: *quick* (the 200 most common TCP ports with service
   names, about a minute) or *full* (every TCP port, service versions and an
   operating system guess). Web interfaces get an *open* link; ports that
-  were not open in the previous scan are marked *new*. Only devices on the
+  were not open in the previous scan are marked *new*. Results belong to
+  the device (MAC address), so they follow it when its address changes;
+  the last five scans are kept with what changed between them, and map
+  cards show the number of open ports. Only devices on the
   networks attached to the firewall can be scanned, never the uplink
   network, VPNs or the firewall itself; at most two scans run at a time.
   Starting scans needs the privilege *Reporting: Network Map: scan devices*.

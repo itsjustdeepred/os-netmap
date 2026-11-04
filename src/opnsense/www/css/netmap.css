@@ -254,3 +254,10 @@
 .nm-hbar { height: 3px; background: rgba(127,127,127,0.15); border-radius: 2px; margin: 3px 0 0 22px; }
 .nm-hbar i { display: block; height: 100%; background: #3b82c4; border-radius: 2px; }
 .nm-resolve-label { font-size: 12px; margin-left: 10px; font-weight: normal; }
+
+/* open ports from the last scan */
+.nm-ports-tag { font-size: 11px; color: #8e5bc4; white-space: nowrap; }
+.nm-ports-tag .fa { margin-right: 2px; }
+.nm-scan-hist { margin-top: 8px; }
+.nm-scan-hist summary { cursor: pointer; color: var(--nm-muted); }
+.nm-scan-hist .nm-l2 span { white-space: nowrap; }

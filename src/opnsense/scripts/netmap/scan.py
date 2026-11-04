@@ -2,13 +2,16 @@
 """
 Port scan of one device with nmap, started from the network map.
 
-usage: scan.py start <ip> <quick|full>   start a scan in the background
-       scan.py status <ip>                print the last result of this device
-       scan.py run <ip> <profile>         (internal) the background worker
+usage: scan.py start <mac> <ip> <quick|full>   start a scan in the background
+       scan.py status <mac>                    the last results of this device
+       scan.py list                            a summary of every scanned device
+       scan.py run <mac> <ip> <profile>        (internal) the background worker
 
 Only addresses inside a network directly attached to the firewall are
 scanned, never the uplink network, the firewall itself or anything routed.
-Results are kept in /var/db/netmap/scans/<ip>.json.
+Results belong to the device, not to its address: they are kept in
+/var/db/netmap/scans/<mac>.json with the last five scans, so they follow
+a device whose address changes.
 """
 
 import ipaddress
@@ -25,6 +28,8 @@ import xml.etree.ElementTree as ET
 
 STATE_DIR = os.environ.get('NETMAP_STATE_DIR', '/var/db/netmap/scans')
 MAX_RUNNING = 2
+KEEP = 5  # scans kept per device
+MAC_RE = re.compile(r'^([0-9a-f]{2}:){5}[0-9a-f]{2}$')
 PROFILES = {
     # the 200 most common TCP ports with a light service probe: about a minute
     'quick': (['-Pn', '-T4', '--top-ports', '200', '-sV', '--version-light'], 300),
@@ -37,8 +42,8 @@ def nmap_binary():
     return shutil.which('nmap') or ('/usr/local/bin/nmap' if os.path.exists('/usr/local/bin/nmap') else None)
 
 
-def path_of(ip):
-    return os.path.join(STATE_DIR, '%s.json' % ip)
+def path_of(key):
+    return os.path.join(STATE_DIR, '%s.json' % key.replace(':', '-'))
 
 
 def load(ip):
@@ -49,13 +54,13 @@ def load(ip):
         return None
 
 
-def save(ip, data):
+def save(key, data):
     os.makedirs(STATE_DIR, mode=0o750, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=STATE_DIR, prefix='.%s.' % ip)
+    fd, tmp = tempfile.mkstemp(dir=STATE_DIR, prefix='.%s.' % key.replace(':', '-'))
     with os.fdopen(fd, 'w') as fh:
         json.dump(data, fh)
     os.chmod(tmp, 0o640)
-    os.replace(tmp, path_of(ip))
+    os.replace(tmp, path_of(key))
 
 
 # --------------------------------------------------------------------------
@@ -150,16 +155,21 @@ def parse_xml(text):
 # --------------------------------------------------------------------------
 # commands
 # --------------------------------------------------------------------------
-def running_scans():
-    count = 0
+def all_records():
     if not os.path.isdir(STATE_DIR):
-        return 0
-    for name in os.listdir(STATE_DIR):
-        if name.endswith('.json'):
-            data = load(name[:-5]) or {}
-            if data.get('status') == 'running' and alive(data.get('pid')):
-                count += 1
-    return count
+        return []
+    out = []
+    for name in sorted(os.listdir(STATE_DIR)):
+        key = name[:-5].replace('-', ':')
+        if name.endswith('.json') and MAC_RE.match(key):
+            data = load(key)
+            if data:
+                out.append(data)
+    return out
+
+
+def running_scans():
+    return sum(1 for d in all_records() if d.get('status') == 'running' and alive(d.get('pid')))
 
 
 def alive(pid):
@@ -170,7 +180,12 @@ def alive(pid):
         return False
 
 
-def start(ip, profile):
+def summary(entry):
+    """The part of a finished scan kept in the history."""
+    return {k: entry.get(k) for k in ('ip', 'profile', 'finished', 'ports', 'os', 'up', 'closed', 'elapsed', 'seen_mac')}
+
+
+def start(mac, ip, profile):
     reason = allowed(ip)
     if reason:
         return {'status': 'error', 'message': reason}
@@ -178,26 +193,30 @@ def start(ip, profile):
         return {'status': 'error', 'message': 'unknown scan profile'}
     if not nmap_binary():
         return {'status': 'error', 'message': 'nmap is not installed on the firewall (pkg install nmap)'}
-    current = load(ip) or {}
+    current = load(mac) or {}
     if current.get('status') == 'running' and alive(current.get('pid')):
         return dict(current, message='a scan of this device is already running')
     if running_scans() >= MAX_RUNNING:
         return {'status': 'error', 'message': 'two scans are already running; wait for one to finish'}
-    proc = subprocess.Popen([sys.executable, os.path.abspath(__file__), 'run', ip, profile],
+    history = list(current.get('history') or [])
+    if current.get('finished') and current.get('status') == 'done':
+        history.insert(0, summary(current))
+    data = {'mac': mac, 'ip': ip, 'profile': profile, 'status': 'running', 'started': time.time(), 'history': history[:KEEP - 1]}
+    save(mac, data)
+    proc = subprocess.Popen([sys.executable, os.path.abspath(__file__), 'run', mac, ip, profile],
                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                             start_new_session=True)
-    data = {'ip': ip, 'profile': profile, 'status': 'running', 'started': time.time(), 'pid': proc.pid,
-            'previous': {k: current.get(k) for k in ('finished', 'ports', 'os', 'profile') if current.get('finished')} or None}
-    save(ip, data)
+    data['pid'] = proc.pid
+    save(mac, data)
     return data
 
 
-def run(ip, profile):
+def run(mac, ip, profile):
     args, timeout = PROFILES[profile]
-    data = load(ip) or {'ip': ip, 'profile': profile, 'started': time.time()}
+    data = load(mac) or {'mac': mac, 'ip': ip, 'profile': profile, 'started': time.time(), 'history': []}
     data.update({'status': 'running', 'pid': os.getpid()})
-    save(ip, data)
-    fd, xml_path = tempfile.mkstemp(dir=STATE_DIR, prefix='.%s.' % ip, suffix='.xml')
+    save(mac, data)
+    fd, xml_path = tempfile.mkstemp(dir=STATE_DIR, prefix='.scan.', suffix='.xml')
     os.close(fd)
     cmd = [nmap_binary()] + args + ['-oX', xml_path, ip]
     try:
@@ -206,7 +225,10 @@ def run(ip, profile):
             text = fh.read()
         if not text.strip():
             raise ValueError((proc.stderr or 'nmap produced no output').strip()[-300:])
-        data.update(parse_xml(text))
+        result = parse_xml(text)
+        # the address may have moved to another device since the scan was asked for
+        result['seen_mac'] = result.pop('mac', '')
+        data.update(result)
         data.update({'status': 'done', 'finished': time.time()})
     except subprocess.TimeoutExpired:
         data.update({'status': 'error', 'message': 'the scan took longer than %d minutes' % (timeout // 60),
@@ -220,37 +242,53 @@ def run(ip, profile):
             pass
     data.pop('pid', None)
     data['command'] = ' '.join(['nmap'] + args + [ip])
-    save(ip, data)
+    save(mac, data)
 
 
-def status(ip):
-    if allowed(ip) and not load(ip):
-        return {'status': 'none'}
-    data = load(ip)
+def status(mac):
+    data = load(mac)
     if not data:
-        return {'status': 'none', 'ip': ip}
+        return {'status': 'none', 'mac': mac}
     if data.get('status') == 'running' and not alive(data.get('pid')):
         data.update({'status': 'error', 'message': 'the scan stopped unexpectedly'})
     data.pop('pid', None)
     return data
 
 
+def listing():
+    out = []
+    for d in all_records():
+        last = d if d.get('status') == 'done' else ((d.get('history') or [None])[0] or {})
+        out.append({'mac': d.get('mac'), 'ip': last.get('ip') or d.get('ip'), 'status': d.get('status'),
+                    'finished': last.get('finished'),
+                    'open': [{'port': p['port'], 'proto': p['proto'], 'service': p.get('service', '')}
+                             for p in last.get('ports') or []]})
+    return {'status': 'ok', 'devices': out}
+
+
 def main():
-    if len(sys.argv) < 3:
-        print(json.dumps({'status': 'error', 'message': 'usage: scan.py start|status <ip> [profile]'}))
+    args = sys.argv[1:]
+    action = args[0] if args else ''
+    if action == 'list':
+        print(json.dumps(listing()))
         return 0
-    action, ip = sys.argv[1], sys.argv[2]
-    if not re.match(r'^\d{1,3}(\.\d{1,3}){3}$', ip):
-        print(json.dumps({'status': 'error', 'message': 'invalid address'}))
+    mac = (args[1] if len(args) > 1 else '').lower()
+    if not MAC_RE.match(mac):
+        print(json.dumps({'status': 'error', 'message': 'invalid MAC address'}))
         return 0
-    if action == 'run':
-        signal.signal(signal.SIGHUP, signal.SIG_IGN)
-        run(ip, sys.argv[3] if len(sys.argv) > 3 else 'quick')
-        return 0
-    if action == 'start':
-        out = start(ip, sys.argv[3] if len(sys.argv) > 3 else 'quick')
+    if action in ('start', 'run'):
+        ip = args[2] if len(args) > 2 else ''
+        profile = args[3] if len(args) > 3 else 'quick'
+        if not re.match(r'^\d{1,3}(\.\d{1,3}){3}$', ip):
+            print(json.dumps({'status': 'error', 'message': 'invalid address'}))
+            return 0
+        if action == 'run':
+            signal.signal(signal.SIGHUP, signal.SIG_IGN)
+            run(mac, ip, profile)
+            return 0
+        out = start(mac, ip, profile)
     elif action == 'status':
-        out = status(ip)
+        out = status(mac)
     else:
         out = {'status': 'error', 'message': 'unknown action'}
     print(json.dumps(out))
