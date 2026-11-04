@@ -18,6 +18,10 @@ configured in its settings.
 Plugin Changelog
 ================
 
+1.0.1
+
+* Physical view: device addresses are no longer drawn inside a bordered box
+
 1.0
 
 * Initial release
