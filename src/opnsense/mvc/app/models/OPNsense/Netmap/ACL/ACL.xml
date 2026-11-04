@@ -12,6 +12,14 @@
             <pattern>api/diagnostics/firewall/log*</pattern>
             <pattern>api/diagnostics/networkinsight/*</pattern>
             <pattern>api/unbound/diagnostics/dumpcache*</pattern>
+            <pattern>api/netmap/scan/status*</pattern>
         </patterns>
     </page-reporting-netmap>
+    <page-reporting-netmap-scan>
+        <name>Reporting: Network Map: scan devices</name>
+        <description>Start nmap port scans of devices on the networks attached to the firewall.</description>
+        <patterns>
+            <pattern>api/netmap/scan/*</pattern>
+        </patterns>
+    </page-reporting-netmap-scan>
 </acl>

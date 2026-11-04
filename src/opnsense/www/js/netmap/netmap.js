@@ -103,6 +103,8 @@
     // common device names in several languages; the more specific kinds first
     var NAME_RULES = [
         ['ap', /access ?point|^ap\b|\bap$/],
+        // brands first: "camera" is also the Italian word for bedroom ("sonos camera")
+        ['speaker', /sonos|homepod|\becho (dot|show|studio)\b/],
         ['intercom', /intercom|citofono|videocitofono|interphone|door ?station|doorbell|campanello|sprechanlage/],
         ['nvr', /\bnvr\b|\bdvr\b|recorder|videoregistratore/],
         ['camera', /\bcam\b|camera|telecamera|\bipcam|webcam|kamera|cam\d|\btapo c\d+|^c(100|110|200|210|220|310|320|500)$/],
@@ -153,7 +155,10 @@
         ['firewall', /deciso|netgate|fortinet|sophos|watchguard|palo alto/i],
         ['network', /ubiquiti|mikrotik|tp-link|netgear|cisco|juniper|aruba|hewlett packard enterprise|zyxel|d-link|linksys|avm gmbh|draytek|cambium|ruckus|edgecore|tenda|mercusys|eero|plume/i]
     ];
-    var WIFI_KINDS = {phone: 1, tablet: 1, watch: 1, laptop: 1};
+    // without switch and access point data the connection is a guess from the kind of device
+    var WIFI_KINDS = {phone: 1, tablet: 1, watch: 1, laptop: 1, iot: 1, appliance: 1, climate: 1, speaker: 1, media: 1, ev: 1};
+    var LAN_KINDS = {camera: 1, nvr: 1, nas: 1, server: 1, vm: 1, computer: 1, 'switch': 1, ap: 1, network: 1, router: 1,
+        firewall: 1, alarm: 1, intercom: 1, power: 1, voip: 1, console: 1};
 
     function guessType(names, vendor) {
         for (var i = 0; i < names.length; i++) {
@@ -301,7 +306,7 @@
                 h.link = ic.connection === 'wireless' ? 'wifi' : 'lan';
                 h.linkKnown = true;
             } else {
-                h.link = h.random || WIFI_KINDS[h.type] ? 'wifi' : (h.type === 'unknown' ? '' : 'lan');
+                h.link = h.random || WIFI_KINDS[h.type] ? 'wifi' : (LAN_KINDS[h.type] ? 'lan' : '');
                 h.linkKnown = false;
             }
         });
@@ -419,6 +424,7 @@
             '    <button type="button" class="btn btn-default btn-sm" data-link="">All</button>' +
             '    <button type="button" class="btn btn-default btn-sm" data-link="lan"><span class="nm-lan-tag">LAN</span> Cable</button>' +
             '    <button type="button" class="btn btn-default btn-sm" data-link="wifi">' + icon('wifi') + ' Wi-Fi</button>' +
+            '    <button type="button" class="btn btn-default btn-sm" data-link="none" title="Connection not known">?</button>' +
             '  </div>' +
             '  <select class="form-control input-sm nm-type"><option value="">every kind</option></select>' +
             '  <label class="nm-check"><input type="checkbox" class="nm-active"> talking now</label>' +
@@ -428,6 +434,7 @@
             '  <span class="nm-status text-muted"></span>' +
             '</div>' +
             '<div class="nm-chips"></div>' +
+            '<div class="nm-guess-note small text-muted"></div>' +
             '<div class="nm-stage"></div>' +
             '<div class="nm-drawer" aria-hidden="true"></div>');
         var $stage = $root.find('.nm-stage'), $drawer = $root.find('.nm-drawer');
@@ -470,7 +477,7 @@
         function visible(h, st) {
             if (!filters.offline && !h.online) { return false; }
             if (h.net && filters.nets[h.net.id]) { return false; }
-            if (filters.link && h.link !== filters.link) { return false; }
+            if (filters.link && (filters.link === 'none' ? h.link : h.link !== filters.link)) { return false; }
             if (filters.type && h.type !== filters.type) { return false; }
             if (filters.active && !(st.traffic.up + st.traffic.down > 0)) { return false; }
             if (filters.q) {
@@ -630,6 +637,10 @@
             });
             chips(groups);
             fillTypes();
+            var exact = model.instanton && model.instanton.clients;
+            $root.find('.nm-guess-note').html(exact ? '' : icon('info-circle') + ' Cable or Wi-Fi is <b>guessed</b> from the kind of ' +
+                'device (faded icons): the firewall cannot see how a device reaches the switch. With the Instant On plugin installed the ' +
+                'map reads it from the switches and access points.');
             if (filters.view === 'physical' && model.instanton && model.instanton.topology) {
                 drawPhysical(items);
             } else {
@@ -639,12 +650,13 @@
         }
 
         // ---- device drawer ---------------------------------------------
-        var drawerData = {rows: [], prev: {}, history: [], log: []};
+        var drawerData = {rows: [], prev: {}, history: [], log: [], scan: null};
 
         function openDrawer(mac) {
             selected = mac;
-            drawerData = {rows: [], prev: {}, history: [], log: []};
+            drawerData = {rows: [], prev: {}, history: [], log: [], scan: null};
             $drawer.addClass('nm-open').attr('aria-hidden', 'false');
+            loadScan();
             $stage.find('.nm-sel').removeClass('nm-sel');
             $stage.find('[data-mac="' + mac + '"]').addClass('nm-sel');
             renderDrawer();
@@ -654,12 +666,91 @@
         function closeDrawer() {
             selected = null;
             clearTimeout(timers.live);
+            clearTimeout(timers.scan);
             $drawer.removeClass('nm-open').attr('aria-hidden', 'true').empty();
             $stage.find('.nm-sel').removeClass('nm-sel');
         }
 
         $drawer.on('click', '.nm-close', closeDrawer);
         $(document).on('keydown', function (e) { if (e.key === 'Escape' && selected) { closeDrawer(); } });
+
+        // ---- port scan (nmap on the firewall) ----------------------------
+        function loadScan() {
+            clearTimeout(timers.scan);
+            var h = model.hosts[selected];
+            if (!h || !h.ip) { return; }
+            var mac = selected;
+            get('netmap/scan/status/' + encodeURIComponent(h.ip)).done(function (d) {
+                if (selected !== mac) { return; }
+                drawerData.scan = d;
+                renderDrawer();
+                if (d && d.status === 'running') { timers.scan = setTimeout(loadScan, 3000); }
+            }).fail(function (xhr) {
+                if (selected === mac) { drawerData.scan = {status: 'unavailable', code: xhr.status}; renderDrawer(); }
+            });
+        }
+
+        function startScan(profile) {
+            var h = model.hosts[selected];
+            if (!h || !h.ip) { return; }
+            drawerData.scan = {status: 'running', profile: profile, started: Date.now() / 1000};
+            renderDrawer();
+            search('netmap/scan/start/' + encodeURIComponent(h.ip) + '/' + profile, {}).done(function (d) {
+                drawerData.scan = d;
+                renderDrawer();
+                if (d && d.status === 'running') { timers.scan = setTimeout(loadScan, 3000); }
+            }).fail(function (xhr) {
+                drawerData.scan = {status: 'error', message: xhr.status === 403 ? 'your account may not start scans ' +
+                    '(privilege "Reporting: Network Map: scan devices")' : 'HTTP ' + xhr.status};
+                renderDrawer();
+            });
+        }
+
+        $drawer.on('click', '[data-scan]', function () { startScan($(this).data('scan')); });
+
+        function scanHtml(h) {
+            var sc = drawerData.scan;
+            var buttons = '<div class="nm-scan-tools"><button type="button" class="btn btn-default btn-xs" data-scan="quick" ' +
+                'title="The 200 most common ports with service names, about a minute">' + icon('search') + ' Quick scan</button> ' +
+                '<button type="button" class="btn btn-default btn-xs" data-scan="full" title="Every TCP port, service versions and ' +
+                'operating system, several minutes">' + icon('crosshairs') + ' Full scan</button></div>';
+            var note = '<p class="small text-muted">nmap runs on the firewall and only scans devices on its own networks. Some ' +
+                'cheap IoT devices dislike full scans; a quick scan is gentle.</p>';
+            if (!sc) { return '<p class="text-muted small">' + icon('spinner fa-pulse') + ' reading...</p>'; }
+            if (sc.status === 'unavailable') {
+                return '<p class="text-muted small">Port scans are not available' + (sc.code === 403 ? ' for your account.' : ' (the plugin backend does not answer).') + '</p>';
+            }
+            if (sc.status === 'running') {
+                return '<p>' + icon('spinner fa-pulse') + ' ' + esc(sc.profile === 'full' ? 'Full' : 'Quick') + ' scan running for ' +
+                    esc(Math.round(Date.now() / 1000 - (sc.started || Date.now() / 1000))) + ' s...</p>' + note;
+            }
+            var html = buttons;
+            if (sc.status === 'error') { html += '<p class="text-danger small">' + icon('exclamation-triangle') + ' ' + esc(sc.message || 'scan failed') + '</p>'; }
+            if (sc.status === 'done') {
+                var prev = {};
+                $.each(((sc.previous || {}).ports) || [], function (_, p) { prev[p.proto + p.port] = 1; });
+                var hasPrev = !!(sc.previous && sc.previous.ports);
+                html += '<p class="small text-muted">' + esc(sc.profile === 'full' ? 'Full' : 'Quick') + ' scan ' + esc(ago(sc.finished)) +
+                    (sc.elapsed ? ', ' + esc(Math.round(sc.elapsed)) + ' s' : '') + (sc.up === false ? ' &middot; the device did not answer' : '') +
+                    (sc.closed ? ' &middot; ' + esc(sc.closed) + ' ports closed or filtered' : '') + '</p>';
+                if (sc.os && sc.os.length) {
+                    html += '<p class="small">' + icon('desktop') + ' System: <b>' + esc(sc.os[0].name) + '</b> <span class="text-muted">(' +
+                        esc(sc.os[0].accuracy) + '% sure)</span></p>';
+                }
+                html += sc.ports && sc.ports.length ? '<ul class="nm-list nm-ports">' + $.map(sc.ports, function (p) {
+                    var web = /^https?/.test(p.service) || p.tunnel === 'ssl' && /http/.test(p.service);
+                    var scheme = p.tunnel === 'ssl' || p.service === 'https' ? 'https' : 'http';
+                    return '<li><div class="nm-l1"><span class="nm-r-name">' + esc(p.port) + '/' + esc(p.proto) + '</span>' +
+                        '<span class="nm-r-port">' + esc(p.service || '?') + '</span>' +
+                        (hasPrev && !prev[p.proto + p.port] ? '<span class="label label-warning">new</span>' : '') +
+                        '<span class="nm-r-rate">' + (web ? '<a href="' + esc(scheme + '://' + h.ip + ':' + p.port + '/') + '" target="_blank" ' +
+                        'rel="noopener">' + icon('external-link') + ' open</a>' : '') + '</span></div>' +
+                        ((p.product || p.version || p.extra) ? '<div class="nm-l2"><span>' + esc([p.product, p.version, p.extra ? '(' + p.extra + ')' : '']
+                            .filter(Boolean).join(' ')) + '</span></div>' : '') + '</li>';
+                }).join('') + '</ul>' : '<p class="small text-success">' + icon('check') + ' No open ports found.</p>';
+            }
+            return html + note;
+        }
 
         function pollDevice() {
             clearTimeout(timers.live);
@@ -787,6 +878,7 @@
                 '<table class="table table-condensed nm-facts"><tbody>' + $.map(facts, function (f) {
                     return f[1] ? '<tr><th>' + esc(f[0]) + '</th><td>' + f[1] + '</td></tr>' : '';
                 }).join('') + '</tbody></table>' +
+                '<h5>Open ports</h5><div class="nm-scan">' + scanHtml(h) + '</div>' +
                 '<h5>Connections <span class="badge">' + esc(conns.length) + '</span></h5>' + connHtml +
                 '<h5>Blocked by the firewall <span class="badge">' + esc(blk.length) + '</span>' + (h.ip ? ' <a class="small" href="' +
                     esc(logLink('__addr__', h.ip)) + '" target="_blank">' + icon('external-link') + ' live log</a>' : '') + '</h5>' + blkHtml +

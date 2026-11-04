@@ -20,22 +20,24 @@
 .nm-chip-off { opacity: 0.4; text-decoration: line-through; }
 
 /* firewall on top, networks below */
-.nm-root { display: flex; justify-content: center; position: relative; padding-bottom: 22px; }
-.nm-root::after { content: ''; position: absolute; bottom: 0; left: 50%; height: 22px; border-left: 2px solid var(--nm-line); }
+.nm-root { display: flex; justify-content: flex-start; position: relative; padding-bottom: 18px; }
+.nm-root::after { content: ''; position: absolute; bottom: 0; left: 30px; height: 18px; border-left: 2px solid var(--nm-line); }
 .nm-fw { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-radius: 14px; border: 2px solid #c4473b;
     background: var(--nm-card); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
 .nm-fw > .fa { font-size: 28px; color: #c4473b; }
 .nm-fw b, .nm-fw small { display: block; }
 .nm-fw small { color: var(--nm-muted); }
-.nm-nets { border-top: 2px solid var(--nm-line); padding-top: 18px; display: grid; gap: 16px;
-    grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); align-items: start; }
-.nm-net { border-radius: 12px; border: 1px solid var(--nm-line); border-top: 4px solid var(--net); background: var(--nm-card);
+.nm-nets { display: flex; flex-direction: column; gap: 16px; padding-left: 54px; }
+.nm-net { border-radius: 12px; border: 1px solid var(--nm-line); border-left: 5px solid var(--net); background: var(--nm-card);
     padding: 8px 10px 10px; position: relative; }
-.nm-nets > .nm-net::before { content: ''; position: absolute; top: -22px; left: 50%; height: 18px; border-left: 2px solid var(--nm-line); }
-.nm-net header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; font-size: 13px; }
+/* trunk from the firewall down the left side, one branch per network */
+.nm-nets > .nm-net::before { content: ''; position: absolute; top: 22px; left: -29px; width: 24px; border-top: 2px solid var(--nm-line); }
+.nm-nets > .nm-net::after { content: ''; position: absolute; top: -17px; bottom: -17px; left: -29px; border-left: 2px solid var(--nm-line); }
+.nm-nets > .nm-net:last-child::after { bottom: auto; height: 41px; }
+.nm-net header { display: flex; position: relative; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; font-size: 13px; }
 .nm-net-stat { margin-left: auto; font-size: 12px; color: var(--nm-muted); }
 .nm-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--net); }
-.nm-elsewhere { margin-top: 18px; border-top-color: #999; }
+.nm-elsewhere { margin-top: 18px; border-left-color: #999; }
 
 /* device cards */
 .nm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
@@ -126,7 +128,10 @@
 .nm-legend .nm-up { color: #2e9e6b; }
 
 @media (max-width: 767px) {
-    .nm-nets { grid-template-columns: 1fr; }
+    .nm-nets { padding-left: 34px; }
+    .nm-nets > .nm-net::before, .nm-nets > .nm-net::after { left: -19px; }
+    .nm-nets > .nm-net::before { width: 14px; }
+    .nm-root::after { left: 20px; }
     .nm-toolbar .nm-q { width: 100%; }
 }
 
@@ -145,3 +150,7 @@
 .nm-rule-block { color: #c4473b; }
 .nm-facts { table-layout: fixed; }
 .nm-facts td { word-break: break-word; }
+
+/* port scan */
+.nm-scan-tools { margin-bottom: 6px; }
+.nm-ports .label { font-size: 9px; }

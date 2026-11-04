@@ -20,6 +20,15 @@ with its traffic. Read-only.
   bytes and the rule that allowed it, and the packets the firewall blocked
   with the rule that blocked them.
 
+* **Open ports** (device panel) – a Fing-like port scan with nmap running
+  on the firewall: *quick* (the 200 most common TCP ports with service
+  names, about a minute) or *full* (every TCP port, service versions and an
+  operating system guess). Web interfaces get an *open* link; ports that
+  were not open in the previous scan are marked *new*. Only devices on the
+  networks attached to the firewall can be scanned, never the uplink
+  network, VPNs or the firewall itself; at most two scans run at a time.
+  Starting scans needs the privilege *Reporting: Network Map: scan devices*.
+
 ## Where the data comes from
 
 Only core OPNsense APIs, read from the browser:
@@ -32,6 +41,7 @@ Only core OPNsense APIs, read from the browser:
 | Blocked packets | `diagnostics/firewall/log` |
 | Remote names | `unbound/diagnostics/dumpcache` |
 | Physical links, Wi-Fi | `instanton/status/{clients,topology}` (optional) |
+| Open ports | `netmap/scan/{start,status}` (this plugin, nmap) |
 
 Limits: the firewall only sees traffic that crosses it (to the Internet
 and between networks). Two devices on the same network talk through the
@@ -51,7 +61,8 @@ Copy this repository to the firewall and run as root:
 sh install.sh
 ```
 
-Then open **Reporting > Network Map**. `uninstall.sh` removes the files.
+`install.sh` also installs `nmap` from the OPNsense package repository
+when it is missing. Then open **Reporting > Network Map**. `uninstall.sh` removes the files.
 
 ## License
 
