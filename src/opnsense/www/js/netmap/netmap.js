@@ -703,7 +703,7 @@
         $(document).on('keydown', function (e) { if (e.key === 'Escape' && selected) { closeDrawer(); } });
         // a click anywhere outside the panel closes it (a click on another device opens that one instead)
         $(document).on('mousedown', function (e) {
-            if (selected && !$(e.target).closest('.nm-drawer, .nm-card, .modal, .bootstrap-dialog').length) { closeDrawer(); }
+            if (selected && !$('.nm-modal').length && !$(e.target).closest('.nm-drawer, .nm-card, .modal, .modal-backdrop, .bootstrap-dialog').length) { closeDrawer(); }
         });
 
         // ---- port scan (nmap on the firewall) ----------------------------
