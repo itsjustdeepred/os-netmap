@@ -714,8 +714,9 @@
                 'title="The 200 most common ports with service names, about a minute">' + icon('search') + ' Quick scan</button> ' +
                 '<button type="button" class="btn btn-default btn-xs" data-scan="full" title="Every TCP port, service versions and ' +
                 'operating system, several minutes">' + icon('crosshairs') + ' Full scan</button></div>';
-            var note = '<p class="small text-muted">nmap runs on the firewall and only scans devices on its own networks. Some ' +
-                'cheap IoT devices dislike full scans; a quick scan is gentle.</p>';
+            var note = '<p class="small text-muted">Scans are performed by nmap on the firewall and are limited to hosts on ' +
+                'directly connected internal networks. A full scan sends a large number of probes and may affect devices with ' +
+                'limited network stacks; for such devices a quick scan is recommended.</p>';
             if (!sc) { return '<p class="text-muted small">' + icon('spinner fa-pulse') + ' reading...</p>'; }
             if (sc.status === 'unavailable') {
                 return '<p class="text-muted small">Port scans are not available' + (sc.code === 403 ? ' for your account.' : ' (the plugin backend does not answer).') + '</p>';
