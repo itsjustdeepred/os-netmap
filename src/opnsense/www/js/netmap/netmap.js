@@ -487,11 +487,19 @@
             '    <button type="button" class="btn btn-default btn-sm" data-link="wifi">' + icon('wifi') + ' Wi-Fi</button>' +
             '    <button type="button" class="btn btn-default btn-sm" data-link="none" title="Connection not known">?</button>' +
             '  </div>' +
-            '  <select class="form-control input-sm nm-type"><option value="">everything</option></select>' +
-            '  <select class="form-control input-sm nm-group" style="display:none"><option value="">all groups</option></select>' +
-            '  <label class="nm-check"><input type="checkbox" class="nm-active"> talking now</label>' +
-            '  <label class="nm-check"><input type="checkbox" class="nm-offline"> offline too</label>' +
-            '  <label class="nm-check" title="Devices with open ports at their last scan"><input type="checkbox" class="nm-withports"> open ports</label>' +
+            '  <div class="btn-group nm-filters-dd">' +
+            '    <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">' +
+            icon('filter') + ' Filters <span class="badge nm-filter-count"></span> <span class="caret"></span></button>' +
+            '    <div class="dropdown-menu nm-filter-menu">' +
+            '      <label>Kind</label><select class="form-control input-sm nm-type"><option value="">everything</option></select>' +
+            '      <div class="nm-group-wrap" style="display:none"><label>Group</label><select class="form-control input-sm nm-group">' +
+            '<option value="">all groups</option></select></div>' +
+            '      <label class="nm-check"><input type="checkbox" class="nm-active"> only devices talking now</label>' +
+            '      <label class="nm-check"><input type="checkbox" class="nm-offline"> show offline devices too</label>' +
+            '      <label class="nm-check" title="Devices with open ports at their last scan"><input type="checkbox" class="nm-withports"> only devices with open ports</label>' +
+            '      <button type="button" class="btn btn-default btn-xs" data-reset-filters>' + icon('times') + ' Clear filters</button>' +
+            '    </div>' +
+            '  </div>' +
             '  <label class="nm-check" title="Look up the names of remote addresses the DNS cache does not know (reverse DNS) in the device panel: ' +
             'history, connections and blocked packets"><input type="checkbox" class="nm-resolve"> resolve hostnames</label>' +
             '  <select class="form-control input-sm nm-sort"><option value="traffic">by traffic</option><option value="name">by name</option>' +
@@ -536,6 +544,7 @@
         $root.on('change', '.nm-active', function () { filters.active = this.checked; save(); draw(); });
         $root.on('change', '.nm-offline', function () { filters.offline = this.checked; save(); draw(); });
         $root.on('change', '.nm-withports', function () { filters.ports = this.checked; draw(); });
+        $root.on('click', '.nm-filter-menu', function (e) { e.stopPropagation(); });
         $root.on('change', '.nm-sort', function () { filters.sort = $(this).val(); save(); draw(); });
         $root.on('click', '.nm-chip', function () {
             var id = $(this).data('net');
@@ -638,7 +647,7 @@
             }).join('');
             var $s = $root.find('.nm-group');
             if ($s.data('html') !== html) { $s.data('html', html).html(html).val(filters.group); }
-            $s.toggle(names.length > 0);
+            $root.find('.nm-group-wrap').toggle(names.length > 0);
             // actions on every device of the selected group
             var $bar = $root.find('.nm-group-bar');
             if (!filters.group) { $bar.empty(); return; }
@@ -769,6 +778,9 @@
             $root.find('.nm-restrict-count').text(nBlocked || '');
             adoptBanner();
             fillGroups();
+            var active = (filters.type ? 1 : 0) + (filters.group ? 1 : 0) + (filters.active ? 1 : 0) + (filters.offline ? 1 : 0) + (filters.ports ? 1 : 0);
+            $root.find('.nm-filter-count').text(active || '');
+            $root.find('.nm-filters-dd > .btn').toggleClass('active', active > 0);
             // cable / Wi-Fi filters only make sense when switch and access point data tell it
             var exact = !!(model.instanton && model.instanton.clients);
             $root.find('.nm-toolbar .nm-link').toggle(exact);

@@ -288,3 +288,10 @@
 .nm-drawer[data-tab="device"] [data-pane="device"], .nm-drawer[data-tab="traffic"] [data-pane="traffic"],
 .nm-drawer[data-tab="security"] [data-pane="security"], .nm-drawer[data-tab="dns"] [data-pane="dns"] { display: block; }
 .nm-dedit .nm-pane > h5:first-child, .nm-dbody .nm-pane > h5:first-child { margin-top: 6px; }
+
+/* filters dropdown */
+.nm-filter-menu { padding: 12px 14px; min-width: 260px; }
+.nm-filter-menu > label:not(.nm-check), .nm-group-wrap > label { display: block; font-size: 12px; margin: 0 0 3px; font-weight: 600; }
+.nm-filter-menu select { width: 100% !important; margin-bottom: 10px; }
+.nm-filter-menu .nm-check { display: block; margin: 6px 0; }
+.nm-filter-menu [data-reset-filters] { margin-top: 8px; }
