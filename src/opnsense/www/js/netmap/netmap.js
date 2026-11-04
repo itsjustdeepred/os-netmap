@@ -708,53 +708,81 @@
         }
 
         // ---- physical view (Instant On topology) ------------------------
+        // Laid out like the networks view: one panel per switch on the trunk, inside it one block per access point
+        // (meshed access points inside the one they hang from) and one for the devices on a cable.
         function drawPhysical(items) {
-            var nodes = model.instanton.topology, kids = {}, root = null, shown = {};
+            var nodes = model.instanton.topology, kids = {}, root = null, shown = {}, placed = {};
             $.each(items, function (_, it) { shown[it.h.mac] = it; });
             $.each(nodes, function (_, n) {
                 if (!n.parent) { root = n; } else { (kids[n.parent] = kids[n.parent] || []).push(n); }
             });
-            var placed = {};
-            function infraCard(n) {
-                var l = n.link || {};
-                var cls = n.type === 'switch' ? 'nm-sw' : n.type === 'ap' ? 'nm-ap' : 'nm-fwc';
-                var ico = n.type === 'switch' ? 'sitemap' : n.type === 'ap' ? 'wifi' : 'shield';
-                return '<div class="nm-infra ' + cls + (n.online === false ? ' nm-off' : '') + '">' + icon(ico) +
-                    '<div><b>' + esc(n.label) + '</b><small>' + esc(n.sub || '') + '</small></div>' +
-                    (l.text || l.speed ? '<span class="nm-port" title="Link towards the firewall">' + esc([l.text, l.speed, l.poe_w ? l.poe_w + ' W' : '',
-                        l.snr !== undefined && l.snr !== null ? l.snr + ' dB' : ''].filter(Boolean).join(' · ')) + '</span>' : '') + '</div>';
+            if (!root) { drawNetworks(items); return; }
+
+            function linkText(l) {
+                l = l || {};
+                return [l.text, l.speed, l.poe_w ? l.poe_w + ' W' : '', l.snr !== undefined && l.snr !== null ? l.snr + ' dB' : '']
+                    .filter(Boolean).join(' · ');
             }
-            function branch(n) {
-                var children = kids[n.id] || [];
-                var infra = children.filter(function (c) { return !c.client; });
-                var leaves = [];
-                $.each(children, function (_, c) {
-                    if (c.client && shown[c.mac]) { leaves.push(shown[c.mac]); placed[c.mac] = 1; }
+
+            function leavesOf(n) {
+                var out = [];
+                $.each(kids[n.id] || [], function (_, c) {
+                    if (c.client && shown[c.mac]) { out.push(shown[c.mac]); placed[c.mac] = 1; }
                 });
-                leaves.sort(sorter);
-                var kind = (n.link || {}).kind || 'wired';
-                var html = '<li class="nm-li nm-k-' + esc(kind) + '">' + infraCard(n);
-                if (infra.length || leaves.length) {
-                    html += '<ul>';
-                    if (leaves.length) {
-                        html += '<li class="nm-li nm-leaves nm-k-' + (n.type === 'ap' ? 'wireless' : 'wired') + '"><div class="nm-grid">' +
-                            $.map(leaves, function (it) { return card(it.h, it.st); }).join('') + '</div></li>';
-                    }
-                    $.each(infra, function (_, c) { html += branch(c); });
-                    html += '</ul>';
-                }
-                return html + '</li>';
+                return out.sort(sorter);
             }
-            if (!root) { $stage.html('<p class="text-muted">No topology.</p>'); return; }
-            var tree = '<div class="nm-tree"><ul>' + branch(root) + '</ul></div>';
+
+            function grid(list, empty) {
+                return list.length ? '<div class="nm-grid">' + $.map(list, function (it) { return card(it.h, it.st); }).join('') + '</div>'
+                    : '<p class="small text-muted">' + esc(empty) + '</p>';
+            }
+
+            function apBlock(ap, depth) {
+                var clients = leavesOf(ap);
+                var mesh = $.grep(kids[ap.id] || [], function (c) { return !c.client && c.type === 'ap'; });
+                var l = ap.link || {};
+                return '<div class="nm-sub nm-sub-ap' + (l.kind === 'mesh' ? ' nm-sub-mesh' : '') + (ap.online === false ? ' nm-off' : '') + '">' +
+                    '<header>' + icon('wifi') + ' <b>' + esc(ap.label) + '</b><span class="text-muted">' + esc(ap.sub || '') + '</span>' +
+                    '<span class="nm-sub-link">' + (l.kind === 'mesh' ? icon('random') + ' ' : '') + esc(linkText(l)) + '</span>' +
+                    '<span class="nm-net-stat">' + esc(clients.length) + ' ' + icon('mobile') + '</span></header>' +
+                    grid(clients, 'No client on this access point.') +
+                    $.map(mesh, function (m) { return apBlock(m, depth + 1); }).join('') + '</div>';
+            }
+
+            function switchPanel(sw) {
+                var wired = leavesOf(sw);
+                var aps = $.grep(kids[sw.id] || [], function (c) { return !c.client && c.type === 'ap'; });
+                var subs = $.grep(kids[sw.id] || [], function (c) { return !c.client && c.type === 'switch'; });
+                var l = sw.link || {};
+                return '<section class="nm-net nm-phys" style="--net:#2e9e6b"><header>' + icon('sitemap') + ' <b>' + esc(sw.label) + '</b>' +
+                    '<span class="text-muted">' + esc(sw.sub || '') + '</span><span class="nm-sub-link" title="Link towards the firewall">' +
+                    esc(linkText(l)) + '</span><span class="nm-net-stat">' + esc(aps.length) + ' ' + icon('wifi') + ' &nbsp;' + esc(wired.length) + ' ' +
+                    icon('plug') + '</span></header>' +
+                    $.map(aps, function (a) { return apBlock(a, 0); }).join('') +
+                    '<div class="nm-sub nm-sub-wired"><header>' + icon('plug') + ' <b>On a cable</b><span class="nm-net-stat">' + esc(wired.length) +
+                    '</span></header>' + grid(wired, 'No device on a cable.') + '</div>' +
+                    $.map(subs, function (x) {
+                        return x.unmanaged ? '<div class="nm-sub nm-sub-unmanaged"><header>' + icon('sitemap') + ' <b>' + esc(x.label) +
+                            '</b><span class="text-muted">not monitored</span><span class="nm-sub-link">' + esc(linkText(x.link)) + '</span></header>' +
+                            grid(leavesOf(x), 'No device seen behind it.') + '</div>' : switchPanel(x);
+                    }).join('') + '</section>';
+            }
+
+            var switches = $.grep(kids[root.id] || [], function (c) { return !c.client && c.type === 'switch'; });
+            var topAps = $.grep(kids[root.id] || [], function (c) { return !c.client && c.type === 'ap'; });
+            var total = model.total || {up: 0, down: 0};
+            var html = '<div class="nm-root"><div class="nm-fw">' + icon('shield') + '<div><b>Firewall</b><small>' + esc(items.length) +
+                ' devices &middot; ' + icon('arrow-down') + esc(rate(total.down)) + ' ' + icon('arrow-up') + esc(rate(total.up)) +
+                '</small></div></div></div><div class="nm-nets">' + $.map(switches, switchPanel).join('') +
+                $.map(topAps, function (a) { return '<section class="nm-net nm-phys" style="--net:#3b82c4">' + apBlock(a, 0) + '</section>'; }).join('');
             var rest = items.filter(function (it) { return !placed[it.h.mac]; });
             rest.sort(sorter);
-            $stage.html(tree + (rest.length ? '<section class="nm-net nm-elsewhere"><header><b>Not on a monitored switch or access point</b>' +
-                '<span class="text-muted">VPN, other switches, or seen only by the firewall</span></header><div class="nm-grid">' +
-                $.map(rest, function (it) { return card(it.h, it.st); }).join('') + '</div></section>' : ''));
+            if (rest.length) {
+                html += '<section class="nm-net" style="--net:#999"><header><b>Not on a monitored switch</b><span class="text-muted">other networks, ' +
+                    'VPN, or seen only by the firewall</span><span class="nm-net-stat">' + esc(rest.length) + '</span></header>' + grid(rest, '') + '</section>';
+            }
+            $stage.html(html + '</div>');
         }
-
-        var loaded = false;
 
         function draw() {
             if (!loaded) { return; }
