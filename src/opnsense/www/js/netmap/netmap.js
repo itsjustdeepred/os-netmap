@@ -1263,24 +1263,34 @@
         }
 
         function fwDialog(key, on, h) {
-            var who = '<b>' + esc(h ? (h.name || h.ip) : '') + '</b>';
-            var def = FW[key], title, body, ok;
+            h = h || {};
+            var def = FW[key], title, ok, points;
+            var device = '<div class="nm-modal-device"><span class="nm-ico" style="--net:' + (h.net ? h.net.color : '#888') + '">' +
+                icon(TYPES[h.type] ? TYPES[h.type][1] : 'question') + '</span><div><b>' + esc(h.name || h.ip || h.mac || '') + '</b>' +
+                '<small>' + esc([h.ip, h.mac, h.net ? h.net.name : ''].filter(Boolean).join(' · ')) + '</small></div></div>';
             if (key === 'banned') {
-                title = on ? 'Ban device' : 'Unban device';
+                title = on ? 'Ban this device' : 'Unban this device';
                 ok = on ? 'Ban' : 'Unban';
-                body = on ? '<p>Ban ' + who + '?</p><p>All its traffic through the firewall is blocked: Internet, the other networks and ' +
-                    'the services of the firewall such as DNS. Devices on the same network can still reach it through the switch.</p>' +
-                    '<p class="text-warning">' + icon('exclamation-triangle') + ' Do not ban the computer you are using.</p>'
-                    : '<p>Unban ' + who + '? Its traffic through the firewall is allowed again.</p>';
+                points = on ? ['All its traffic through the firewall is blocked: Internet, the other networks and the services of the ' +
+                    'firewall such as DNS and NTP.', 'Devices on the same network can still reach it, because that traffic only goes ' +
+                    'through the switch.', 'The block follows the MAC address, also when the device gets another IP address.']
+                    : ['Its traffic through the firewall is allowed again, as set by your other rules.'];
             } else {
                 title = on ? 'Block Internet access' : 'Allow Internet access';
                 ok = on ? 'Block Internet' : 'Allow Internet';
-                body = on ? '<p>Block Internet access for ' + who + '?</p><p>It can still reach the local networks and the firewall.</p>'
-                    : '<p>Allow Internet access for ' + who + ' again?</p>';
+                points = on ? ['Connections to the Internet are blocked.', 'The device can still reach the local networks and the ' +
+                    'firewall, for example DNS and its controller in the house.', 'The block follows the MAC address, also when the ' +
+                    'device gets another IP address.']
+                    : ['Connections to the Internet are allowed again, as set by your other rules.'];
+            }
+            var body = device + '<ul class="nm-modal-points">' + $.map(points, function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>';
+            if (on && key === 'banned') {
+                body += '<div class="alert alert-warning nm-modal-note">' + icon('exclamation-triangle') + ' Do not ban the computer you are using.</div>';
             }
             if (on && !model.fw.rules[key]) {
-                body += '<p class="text-muted small">First use: the rule "' + esc(def.rule) + '" is created on every internal network and ' +
-                    'the firewall rules are applied. Later changes only update the alias ' + esc(def.alias) + '.</p>';
+                body += '<div class="alert alert-info nm-modal-note">' + icon('info-circle') + ' <b>First use.</b> The firewall rule "' +
+                    esc(def.rule) + '" is created on every internal network and the rules are applied. Afterwards this action only ' +
+                    'updates the alias <code>' + esc(def.alias) + '</code>.</div>';
             }
             return confirmDialog(title, body, ok, on);
         }

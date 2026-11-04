@@ -206,3 +206,16 @@
 .nm-restrict-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .nm-restrict h5 { font-weight: 600; }
 @media (max-width: 767px) { .nm-restrict-cols { grid-template-columns: 1fr; } }
+
+/* confirmation dialog: the theme leaves the modal body without padding */
+.nm-modal .modal-header { padding: 16px 24px; }
+.nm-modal .modal-body { padding: 18px 24px 8px; }
+.nm-modal .modal-footer { padding: 14px 24px; }
+.nm-modal-device { display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin-bottom: 14px; border-radius: 10px;
+    background: rgba(127, 127, 127, 0.08); }
+.nm-modal-device .nm-ico { width: 40px; height: 40px; font-size: 18px; }
+.nm-modal-device b, .nm-modal-device small { display: block; }
+.nm-modal-device small { color: var(--nm-muted, #8a8f96); margin-top: 2px; }
+.nm-modal-points { padding-left: 20px; margin: 0 0 14px; }
+.nm-modal-points li { margin-bottom: 6px; line-height: 1.45; }
+.nm-modal-note { padding: 10px 12px; margin-bottom: 10px; font-size: 13px; }
