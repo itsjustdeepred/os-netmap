@@ -96,8 +96,12 @@
         tv: ['TV', 'television'], media: ['Media player', 'play-circle'], speaker: ['Speaker', 'volume-up'],
         console: ['Game console', 'gamepad'], printer: ['Printer', 'print'], camera: ['Camera', 'video-camera'],
         nvr: ['Video recorder', 'film'], intercom: ['Intercom / doorbell', 'bell'], alarm: ['Alarm system', 'lock'],
-        voip: ['VoIP phone', 'phone'], iot: ['Smart home', 'lightbulb-o'], climate: ['Climate / heating', 'thermometer-half'],
-        appliance: ['Appliance', 'cutlery'], ev: ['EV charger', 'car'], power: ['UPS / power', 'battery-full'],
+        voip: ['VoIP phone', 'phone'], iot: ['Smart home', 'house-signal'], climate: ['Climate / heating', 'temperature-half'],
+        appliance: ['Appliance', 'kitchen-set'], ev: ['EV charger', 'charging-station'], power: ['UPS / power', 'car-battery'],
+        washer: ['Washing machine', 'jug-detergent'], dryer: ['Dryer', 'shirt'], dishwasher: ['Dishwasher', 'soap'],
+        fridge: ['Fridge / freezer', 'snowflake'], oven: ['Oven / cooktop', 'fire-burner'], coffee: ['Coffee machine', 'mug-hot'],
+        vacuum: ['Robot (vacuum, mower)', 'robot'], solar: ['Inverter / solar', 'solar-panel'], plug: ['Smart plug / relay', 'plug'],
+        light: ['Light', 'lightbulb'], sensor: ['Sensor', 'temperature-low'], fan: ['Fan / air purifier', 'fan'],
         unknown: ['Unknown', 'question']
     };
     // common device names in several languages; the more specific kinds first
@@ -109,7 +113,8 @@
         ['nvr', /\bnvr\b|\bdvr\b|recorder|videoregistratore/],
         ['camera', /\bcam\b|camera|telecamera|\bipcam|webcam|kamera|cam\d|\btapo c\d+|^c(100|110|200|210|220|310|320|500)$/],
         ['alarm', /alarm|allarme|centrale|alarmanlage/],
-        ['iot', /shelly|sonoff|tasmota|esphome|\besp(32|8266)?\b|tuya|\bkasa\b|tapo p\d+|smart ?plug/],
+        ['plug', /shelly|sonoff|tasmota|\bkasa\b|tapo p\d+|smart ?plug|\bplug\b|presa|relay|\brele\b/],
+        ['iot', /esphome|\besp(32|8266)?\b|tuya/],
         ['printer', /print|stampante|drucker|imprimante|laserjet|officejet|deskjet|\bbrw|\bepson|bambu|prusa|\bmfc/],
         ['nas', /\bnas\b|synology|diskstation|qnap|truenas|readynas/],
         ['server', /server|proxmox|\bpve\b|esxi|jellyfin|plex|home ?assistant|hassio|unraid|docker|\bnuc\b/],
@@ -124,10 +129,21 @@
         ['console', /playstation|\bps[345]\b|xbox|nintendo/],
         ['voip', /voip|\bsip\b|yealink|snom|gigaset|grandstream|polycom/],
         ['ev', /wallbox|charger|easee|zaptec|colonnina|ladestation/],
-        ['climate', /air ?condition|climat|condizionat|thermostat|termostato|heat ?pump|pompa di calore|caldaia|boiler|daikin|tado|netatmo|\bhvac\b/],
-        ['appliance', /fridge|frigo|refrigerator|lavatrice|washer|washing|dryer|asciugatrice|dishwasher|lavastoviglie|oven|forno|cooktop|induction|piano cottura|\bhood\b|cappa|microwave|coffee|caffe|miele|\bneff\b|bosch|siemens|robot|roborock|roomba|vacuum|aspirapolvere|purifier/],
-        ['power', /\bups\b|\bpdu\b|inverter|solar|fotovoltaico/],
-        ['iot', /sensor|sensore|presence|motion|\bplug\b|presa|relay|rele|zigbee|z-?wave|gateway|bridge|\bhue\b|\bled\b|lamp|lampada|\bluce\b|light|weather|meteo|domotic|smart|vimar|bticino|irrigat|garage|gate|cancello/],
+        ['climate', /air ?condition|\bac\b|climat|condizionat|thermostat|termostato|heat ?pump|pompa di calore|caldaia|boiler|daikin|tado|netatmo|\bhvac\b/],
+        ['dishwasher', /lavastoviglie|dishwasher|geschirrsp/],
+        ['washer', /lavatrice|washer|washing|waschmaschine|lave linge/],
+        ['dryer', /asciugatrice|dryer|trockner|seche linge/],
+        ['fridge', /frigo|fridge|refrigerator|freezer|congelatore|k.hlschrank|cantinetta/],
+        ['oven', /forno|\boven\b|cooktop|piano cottura|induction|induzione|\bhob\b|microwave|microonde|\bhood\b|cappa/],
+        ['coffee', /coffee|caffe|caff\u00e8|espresso|nespresso|kaffee/],
+        ['vacuum', /roborock|roomba|vacuum|aspirapolvere|robot|dreame|ecovacs|deebot|navimow|mower|tosaerba|rasaerba|automower/],
+        ['solar', /inverter|solar|fotovoltaico|photovoltaic|\bpv\b|zendure|huawei smartgrid|smartgrid|battery|batteria/],
+        ['fan', /\bfan\b|ventilat|purifier|purificatore/],
+        ['appliance', /miele|\bneff\b|bosch|siemens|appliance|elettrodomestic/],
+        ['power', /\bups\b|\bpdu\b/],
+        ['light', /\bled\b|lamp|lampada|\bluce\b|\bluci\b|light|\bhue\b|dimmer|rgbw|strip/],
+        ['sensor', /sensor|sensore|presence|motion|weather|meteo|ecowitt|weatherflow|termometro|thermometer|humidity/],
+        ['iot', /zigbee|z-?wave|gateway|bridge|domotic|smart|vimar|bticino|irrigat|garage|gate|cancello/],
         ['firewall', /opnsense|pfsense|firewall/],
         ['router', /router|fritz|modem|\bont\b/],
         ['ap', /access ?point|\bap\b/],
@@ -139,7 +155,10 @@
         ['camera', /hikvision|dahua|axis communications|hanwha|uniview|reolink|amcrest|foscam|ezviz|imou|mobotix|vivotek/i],
         ['nas', /synology|qnap|western digital|asustor|terramaster|buffalo/i],
         ['speaker', /sonos|bose|denon|bang & olufsen|harman|bluesound|marantz/i],
-        ['iot', /espressif|shelly|allterco|tuya|lumi united|aqara|itead|signify|philips lighting|lifx|nanoleaf|ecobee|netatmo|weatherflow|laird|vimar|bticino|legrand|silicon labs|nordic semiconductor|texas instruments|murata|azurewave|seongji|sji industry|chongqing fugui|meross|wiz connected|wistron neweb|universal global scientific|hui zhou gaoshengda/i],
+        ['plug', /shelly|allterco|itead/i],
+        ['light', /signify|philips lighting|lifx|nanoleaf/i],
+        ['vacuum', /irobot|roborock|dreame|ecovacs|segway/i],
+        ['iot', /espressif|tuya|lumi united|aqara|ecobee|netatmo|weatherflow|laird|vimar|bticino|legrand|silicon labs|nordic semiconductor|texas instruments|murata|azurewave|seongji|sji industry|chongqing fugui|meross|wiz connected|wistron neweb|universal global scientific|hui zhou gaoshengda/i],
         ['climate', /daikin|tado|mitsubishi electric|gree electric|midea|viessmann|vaillant/i],
         ['appliance', /miele|bsh hausger|electrolux|whirlpool|haier|candy|smeg|liebherr|irobot|roborock|dreame|ecovacs/i],
         ['printer', /brother|canon|seiko epson|lexmark|kyocera|ricoh|xerox|konica|zebra|bambu/i],
@@ -939,7 +958,7 @@
             $.each(Object.keys(TYPES).sort(function (a, b) { return TYPES[a][0].localeCompare(TYPES[b][0]); }), function (_, t) {
                 if (t === 'unknown') { return; }
                 html += '<label class="nm-icon-opt" title="' + esc(TYPES[t][0]) + '"><input type="radio" name="kind" value="' + t + '"' +
-                    (t === current ? ' checked' : '') + '><span>' + icon(TYPES[t][1]) + '<small>' + esc(TYPES[t][0].split(/[ /]/)[0]) + '</small></span></label>';
+                    (t === current ? ' checked' : '') + '><span>' + icon(TYPES[t][1]) + '<small>' + esc(TYPES[t][0]) + '</small></span></label>';
             });
             return html;
         }
