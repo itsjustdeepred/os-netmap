@@ -68,7 +68,9 @@ The page is under **Network Map > Dashboard** in the main menu.
   domains the device asked for in the latest query log entries, the ones
   AdGuard Home blocked with the rule, and *Block DNS* / *Allow DNS* through
   the AdGuard Home disallowed clients. The firewall talks to AdGuard Home,
-  so its password never reaches the browser.
+  so its password never reaches the browser. In Settings give the host and
+  port of the AdGuard Home web interface (127.0.0.1 and 3000 when it runs on
+  the firewall).
 * **Icon** – the kind of a device, and so its icon, can be chosen from a
   grid in the rename form.
 * **Open ports** (device panel) – a Fing-like port scan with nmap running

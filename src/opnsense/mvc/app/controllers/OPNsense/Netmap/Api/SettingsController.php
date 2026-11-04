@@ -48,7 +48,7 @@ class SettingsController extends ApiMutableModelControllerBase
             'firewall_actions' => (string)$mdl->general->firewall_actions === '1',
             'scans' => (string)$mdl->general->scans === '1',
             'hidden_networks' => $hidden,
-            'adguard' => (string)$mdl->adguard->enabled === '1' && (string)$mdl->adguard->url !== '',
+            'adguard' => (string)$mdl->adguard->enabled === '1' && (string)$mdl->adguard->host !== '' && (string)$mdl->adguard->port !== '',
         ];
     }
 }

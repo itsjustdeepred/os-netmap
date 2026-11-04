@@ -40,11 +40,16 @@ class AdguardController extends ApiControllerBase
     private function request($method, $path, $body = null)
     {
         $ag = (new Netmap())->adguard;
-        if ((string)$ag->enabled !== '1' || (string)$ag->url === '') {
+        if ((string)$ag->enabled !== '1' || (string)$ag->host === '' || (string)$ag->port === '') {
             return [0, null, 'AdGuard Home is not set up in Network Map > Settings'];
         }
         $verify = (string)$ag->verify_tls === '1';
-        $ch = curl_init(rtrim((string)$ag->url, '/') . $path);
+        $host = (string)$ag->host;
+        if (strpos($host, ':') !== false) {
+            $host = '[' . $host . ']';  // IPv6 literal
+        }
+        $base = ((string)$ag->https === '1' ? 'https' : 'http') . '://' . $host . ':' . (string)$ag->port;
+        $ch = curl_init($base . $path);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CONNECTTIMEOUT => 5,

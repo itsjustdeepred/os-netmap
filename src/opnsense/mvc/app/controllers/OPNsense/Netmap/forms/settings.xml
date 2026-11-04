@@ -50,10 +50,24 @@
         <help>Show the domains each device asks for, the ones AdGuard blocked, and a button to block DNS for a device (AdGuard "disallowed clients").</help>
     </field>
     <field>
-        <id>netmap.adguard.url</id>
-        <label>Address</label>
+        <id>netmap.adguard.host</id>
+        <label>Host</label>
         <type>text</type>
-        <help>Web interface of AdGuard Home as seen from the firewall, for example http://127.0.0.1:3000 when it runs on the firewall.</help>
+        <hint>127.0.0.1</hint>
+        <help>Where the AdGuard Home web interface runs, as seen from the firewall. When AdGuard Home runs on this firewall (os-adguardhome-maxit) use 127.0.0.1.</help>
+    </field>
+    <field>
+        <id>netmap.adguard.port</id>
+        <label>Port</label>
+        <type>text</type>
+        <hint>3000</hint>
+        <help>Port of the AdGuard Home web interface: the one in its address bar, for example 3000 in http://10.0.1.1:3000. 3000 is the AdGuard Home default; it is not the DNS port 53.</help>
+    </field>
+    <field>
+        <id>netmap.adguard.https</id>
+        <label>HTTPS</label>
+        <type>checkbox</type>
+        <help>Tick when the AdGuard Home web interface is opened with https://.</help>
     </field>
     <field>
         <id>netmap.adguard.username</id>
@@ -71,6 +85,6 @@
         <label>Verify certificate</label>
         <type>checkbox</type>
         <advanced>true</advanced>
-        <help>Check the HTTPS certificate when the address starts with https.</help>
+        <help>Check the certificate of AdGuard Home when HTTPS is ticked. Leave it off for a self-signed certificate.</help>
     </field>
 </form>
