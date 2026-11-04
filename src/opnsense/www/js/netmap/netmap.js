@@ -1624,6 +1624,7 @@
             var peers = {};
             function add(rows, remoteKey) {
                 $.each(rows, function (_, r) {
+                    if (!r[remoteKey]) { return; }  // Insight groups what is left over under an empty address
                     var key = r[remoteKey] + '|' + r.service_port + '|' + r.protocol;
                     var p = peers[key] || (peers[key] = {ip: r[remoteKey], port: r.service_port, proto: r.protocol, total: 0});
                     p.total = Math.max(p.total, +r.total || 0);
