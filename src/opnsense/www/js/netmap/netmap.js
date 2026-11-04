@@ -456,19 +456,19 @@
 
         $root.html(
             '<div class="nm-toolbar">' +
-            '  <div class="btn-group nm-view" role="group">' +
+            '  <div class="btn-group nm-view" role="group" style="display:none">' +
             '    <button type="button" class="btn btn-default btn-sm" data-view="networks">' + icon('th-large') + ' Networks</button>' +
             '    <button type="button" class="btn btn-default btn-sm" data-view="physical">' + icon('sitemap') + ' Physical</button>' +
             '  </div>' +
             '  <input type="search" class="form-control input-sm nm-q" placeholder="Find name, IP, MAC or maker">' +
-            '  <div class="btn-group nm-link" role="group">' +
+            '  <div class="btn-group nm-link" role="group" style="display:none">' +
             '    <button type="button" class="btn btn-default btn-sm" data-link="">All</button>' +
             '    <button type="button" class="btn btn-default btn-sm" data-link="lan"><span class="nm-lan-tag">LAN</span> Cable</button>' +
             '    <button type="button" class="btn btn-default btn-sm" data-link="wifi">' + icon('wifi') + ' Wi-Fi</button>' +
             '    <button type="button" class="btn btn-default btn-sm" data-link="none" title="Connection not known">?</button>' +
             '  </div>' +
             '  <select class="form-control input-sm nm-type"><option value="">everything</option></select>' +
-            '  <select class="form-control input-sm nm-group"><option value="">all groups</option></select>' +
+            '  <select class="form-control input-sm nm-group" style="display:none"><option value="">all groups</option></select>' +
             '  <label class="nm-check"><input type="checkbox" class="nm-active"> talking now</label>' +
             '  <label class="nm-check"><input type="checkbox" class="nm-offline"> offline too</label>' +
             '  <select class="form-control input-sm nm-sort"><option value="traffic">by traffic</option><option value="name">by name</option>' +
