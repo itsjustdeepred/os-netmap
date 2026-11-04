@@ -57,8 +57,8 @@ Limits: the firewall only sees traffic that crosses it (to the Internet
 and between networks). Two devices on the same network talk through the
 switch and their traffic is not counted. Blocked packets appear only for
 rules with logging enabled and for the default block rules. Without the
-Instant On plugin, cable or Wi-Fi is a guess (private MAC addresses and
-mobile devices are taken as Wi-Fi) and shown faded.
+Instant On plugin the map does not show cable or Wi-Fi: the firewall cannot
+see how a device reaches the switch.
 
 The ACL *Reporting: Network Map* grants the page and read access to the
 APIs above.

@@ -155,10 +155,6 @@
         ['firewall', /deciso|netgate|fortinet|sophos|watchguard|palo alto/i],
         ['network', /ubiquiti|mikrotik|tp-link|netgear|cisco|juniper|aruba|hewlett packard enterprise|zyxel|d-link|linksys|avm gmbh|draytek|cambium|ruckus|edgecore|tenda|mercusys|eero|plume/i]
     ];
-    // without switch and access point data the connection is a guess from the kind of device
-    var WIFI_KINDS = {phone: 1, tablet: 1, watch: 1, laptop: 1, iot: 1, appliance: 1, climate: 1, speaker: 1, media: 1, ev: 1};
-    var LAN_KINDS = {camera: 1, nvr: 1, nas: 1, server: 1, vm: 1, computer: 1, 'switch': 1, ap: 1, network: 1, router: 1,
-        firewall: 1, alarm: 1, intercom: 1, power: 1, voip: 1, console: 1};
 
     function guessType(names, vendor) {
         for (var i = 0; i < names.length; i++) {
@@ -313,7 +309,8 @@
                 h.link = ic.connection === 'wireless' ? 'wifi' : 'lan';
                 h.linkKnown = true;
             } else {
-                h.link = h.random || WIFI_KINDS[h.type] ? 'wifi' : (LAN_KINDS[h.type] ? 'lan' : '');
+                // the firewall cannot see how a device reaches the switch: no guess is shown
+                h.link = '';
                 h.linkKnown = false;
             }
         });
@@ -454,7 +451,6 @@
             '  <span class="nm-status text-muted"></span>' +
             '</div>' +
             '<div class="nm-chips"></div>' +
-            '<div class="nm-guess-note small text-muted"></div>' +
             '<div class="nm-stage"></div>' +
             '<div class="nm-drawer" aria-hidden="true"></div>');
         var $stage = $root.find('.nm-stage'), $drawer = $root.find('.nm-drawer');
@@ -532,7 +528,7 @@
                     esc(h.linkKnown ? 'Cable' + (p ? ', switch port ' + p : '') : 'Probably cable (kind of device)') + '">' +
                     '<span class="nm-lan-tag">LAN</span>' + (p ? '<small>' + esc(h.ic.port) + '</small>' : '') + '</span>';
             }
-            return '<span class="nm-link nm-unknown" title="Connection not known">' + icon('question') + '</span>';
+            return '';
         }
 
         function card(h, st) {
@@ -657,10 +653,10 @@
             });
             chips(groups);
             fillTypes();
-            var exact = model.instanton && model.instanton.clients;
-            $root.find('.nm-guess-note').html(exact ? '' : icon('info-circle') + ' Cable or Wi-Fi is <b>guessed</b> from the kind of ' +
-                'device (faded icons): the firewall cannot see how a device reaches the switch. With the Instant On plugin installed the ' +
-                'map reads it from the switches and access points.');
+            // cable / Wi-Fi filters only make sense when switch and access point data tell it
+            var exact = !!(model.instanton && model.instanton.clients);
+            $root.find('.nm-toolbar .nm-link').toggle(exact);
+            if (!exact && filters.link) { filters.link = ''; }
             if (filters.view === 'physical' && model.instanton && model.instanton.topology) {
                 drawPhysical(items);
             } else {
@@ -858,7 +854,7 @@
                 ['Maker', esc(h.vendor)],
                 ['Network', h.net ? '<span class="nm-dot" style="--net:' + h.net.color + '"></span> ' + esc(h.net.name) + ' <span class="text-muted">' +
                     esc(h.net.cidr) + '</span>' : ''],
-                ['Connection', h.link ? linkBadge(h) + ' ' + esc(h.link === 'wifi' ? 'Wi-Fi' : 'cable') + (h.linkKnown ? '' : ' <span class="text-muted small">(guess)</span>') +
+                ['Connection', h.link ? linkBadge(h) + ' ' + esc(h.link === 'wifi' ? 'Wi-Fi' : 'cable') + 
                     (ic.ap ? ' via <b>' + esc(ic.ap) + '</b>' : '') + (ic.ssid ? ' "' + esc(ic.ssid) + '"' : '') +
                     (ic.port ? ' port <b>' + esc((ic.switch_name ? ic.switch_name + ' ' : '') + ic.port) + '</b>' : '') : ''],
                 ['Seen', esc(h.online ? 'online now' : 'last ' + ago(h.lastSeen)) + (h.firstSeen ? ' <span class="text-muted">first ' + esc(ago(h.firstSeen)) + '</span>' : '')],
