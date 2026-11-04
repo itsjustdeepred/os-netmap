@@ -59,6 +59,12 @@
             data: JSON.stringify(body || {current: 1, rowCount: -1, searchPhrase: ''})});
     }
 
+    // the live log page applies one filter given in the URL hash
+    function logLink(field, value) {
+        return '/ui/diagnostics/firewall/log#field=' + encodeURIComponent(field) + '&operator=' + encodeURIComponent('=') +
+            '&value=' + encodeURIComponent(value);
+    }
+
     function ipNum(ip) {
         var p = String(ip).split('.');
         return p.length === 4 ? ((+p[0] << 24) >>> 0) + (+p[1] << 16) + (+p[2] << 8) + (+p[3]) : null;
@@ -769,7 +775,8 @@
                     '<span class="nm-r-rate text-muted">' + esc(ago(Date.parse(r.__timestamp__) / 1000)) + '</span></div>' +
                     '<div class="nm-l2">' + (name ? '<span>' + esc(remote) + '</span>' : '') + '<span>' + esc(out ? 'from this device' : 'to this device') +
                     '</span><span class="nm-rule nm-rule-block" title="Firewall rule that blocked it">' + icon('ban') + ' ' +
-                    esc(r.label || ('rule ' + r.rulenr)) + '</span></div></li>';
+                    esc(r.label || ('rule ' + r.rulenr)) + (r.rid ? ' <a href="' + esc(logLink('rid', r.rid)) + '" target="_blank" ' +
+                    'title="Live log of this rule">' + icon('external-link') + '</a>' : '') + '</span></div></li>';
             }).join('') + '</ul>'
                 : '<p class="text-muted small">Nothing blocked in the latest firewall log entries. Only rules with logging enabled ' +
                     '(and the default block rules) are recorded.</p>';
@@ -781,8 +788,10 @@
                     return f[1] ? '<tr><th>' + esc(f[0]) + '</th><td>' + f[1] + '</td></tr>' : '';
                 }).join('') + '</tbody></table>' +
                 '<h5>Connections <span class="badge">' + esc(conns.length) + '</span></h5>' + connHtml +
-                '<h5>Blocked by the firewall <span class="badge">' + esc(blk.length) + '</span></h5>' + blkHtml +
-                '<p class="small"><a href="/ui/diagnostics/firewall/log" target="_blank">' + icon('external-link') + ' Live firewall log</a> &nbsp; ' +
+                '<h5>Blocked by the firewall <span class="badge">' + esc(blk.length) + '</span>' + (h.ip ? ' <a class="small" href="' +
+                    esc(logLink('__addr__', h.ip)) + '" target="_blank">' + icon('external-link') + ' live log</a>' : '') + '</h5>' + blkHtml +
+                '<p class="small"><a href="' + esc(logLink('__addr__', h.ip)) + '" target="_blank">' + icon('external-link') +
+                ' Live firewall log of ' + esc(h.ip) + '</a> &nbsp; ' +
                 '<a href="/ui/diagnostics/networkinsight" target="_blank">' + icon('external-link') + ' Insight history</a></p></div>');
         }
 
