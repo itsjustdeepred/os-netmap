@@ -1188,7 +1188,6 @@
                     icon(on ? 'unlock' : 'ban') + ' ' + esc(on ? x[5] : x[4]) + '</button><div><b>' + esc(x[1]) + ':</b> ' +
                     (on ? '<span class="text-danger">' + esc(x[2]) + '</span>' : '<span class="text-success">' + esc(x[3]) + '</span>') + '</div></div>';
             });
-            html += '<div class="nm-fw-confirm"></div>';
             var fwd = forwardsOf(h);
             html += '<div class="nm-fw-fwd"><b>Port forwards</b>' + (fwd.length ? '<ul class="nm-list">' + $.map(fwd, function (f) {
                 return '<li><div class="nm-l1"><span class="nm-r-name">' + esc(String(f.proto).toUpperCase() + ' ' + f.port) + '</span>' +
@@ -1226,36 +1225,58 @@
             return loadFirewall().always(function () { renderEdit(); draw(); fwMessage('success', esc(text)); });
         }
 
-        // first click shows what will happen, second click does it
-        $drawer.on('click', '[data-fw]', function () {
-            var h = selectedHost(), key = $(this).data('fw'), on = $(this).data('on') === 1;
-            if (!h || fwBusy) { return; }
-            var def = FW[key];
-            var first = on && !model.fw.rules[key];
-            var text = on ? (key === 'banned' ? 'Ban <b>' + esc(h.name || h.ip) + '</b>? Its traffic through the firewall is blocked: Internet, ' +
-                'other networks and services of the firewall such as DNS. Devices on the same network still reach it through the switch. ' +
-                'Do not ban the computer you are using.'
-                : 'Block Internet access for <b>' + esc(h.name || h.ip) + '</b>? It can still reach the local networks.')
-                : (key === 'banned' ? 'Unban <b>' + esc(h.name || h.ip) + '</b>?' : 'Allow Internet access for <b>' + esc(h.name || h.ip) + '</b>?');
-            if (first) {
-                text += '<br><span class="text-muted">First use: the rule "' + esc(def.rule) + '" is created on every internal network ' +
-                    'and the firewall rules are applied.</span>';
+        // confirmation dialog (Bootstrap 3 modal); resolves when the user confirms
+        function confirmDialog(title, body, okLabel, danger) {
+            var done = $.Deferred();
+            var $m = $('<div class="modal fade nm-modal" tabindex="-1" role="dialog"><div class="modal-dialog" role="document">' +
+                '<div class="modal-content"><div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-label="Close">' +
+                '&times;</button><h4 class="modal-title">' + esc(title) + '</h4></div><div class="modal-body">' + body + '</div>' +
+                '<div class="modal-footer"><button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>' +
+                '<button type="button" class="btn btn-' + (danger ? 'danger' : 'primary') + ' nm-modal-ok">' + esc(okLabel) + '</button>' +
+                '</div></div></div></div>');
+            $m.find('.nm-modal-ok').on('click', function () { done.resolve(); $m.modal('hide'); });
+            $m.on('hidden.bs.modal', function () { if (done.state() === 'pending') { done.reject(); } $m.remove(); });
+            $('body').append($m);
+            $m.modal('show');
+            return done.promise();
+        }
+
+        function fwDialog(key, on, h) {
+            var who = '<b>' + esc(h ? (h.name || h.ip) : '') + '</b>';
+            var def = FW[key], title, body, ok;
+            if (key === 'banned') {
+                title = on ? 'Ban device' : 'Unban device';
+                ok = on ? 'Ban' : 'Unban';
+                body = on ? '<p>Ban ' + who + '?</p><p>All its traffic through the firewall is blocked: Internet, the other networks and ' +
+                    'the services of the firewall such as DNS. Devices on the same network can still reach it through the switch.</p>' +
+                    '<p class="text-warning">' + icon('exclamation-triangle') + ' Do not ban the computer you are using.</p>'
+                    : '<p>Unban ' + who + '? Its traffic through the firewall is allowed again.</p>';
+            } else {
+                title = on ? 'Block Internet access' : 'Allow Internet access';
+                ok = on ? 'Block Internet' : 'Allow Internet';
+                body = on ? '<p>Block Internet access for ' + who + '?</p><p>It can still reach the local networks and the firewall.</p>'
+                    : '<p>Allow Internet access for ' + who + ' again?</p>';
             }
-            $drawer.find('.nm-fw-confirm').html('<div class="alert alert-warning small">' + text + '<div style="margin-top:6px">' +
-                '<button type="button" class="btn btn-' + (on ? 'danger' : 'primary') + ' btn-xs" data-fw-go="' + key + '" data-on="' + (on ? 1 : 0) +
-                '">Confirm</button> <button type="button" class="btn btn-default btn-xs" data-fw-no>Cancel</button></div></div>');
-        });
-        $drawer.on('click', '[data-fw-no]', function () { $drawer.find('.nm-fw-confirm').empty(); });
-        $drawer.on('click', '[data-fw-go]', function () {
-            var h = selectedHost(), key = $(this).data('fw-go'), on = $(this).data('on') === 1;
-            fwBusy = true;
-            $(this).prop('disabled', true).html(icon('spinner fa-pulse') + ' Applying...');
-            setMember(key, h.mac, on).done(function () {
-                fwDone((h.name || h.ip) + (on ? ' is now ' : ' is no longer ') + FW[key].label + '.');
-            }).fail(function (err) {
-                fwBusy = false;
-                $drawer.find('.nm-fw-confirm').empty();
-                fwMessage('danger', esc(why(err)));
+            if (on && !model.fw.rules[key]) {
+                body += '<p class="text-muted small">First use: the rule "' + esc(def.rule) + '" is created on every internal network and ' +
+                    'the firewall rules are applied. Later changes only update the alias ' + esc(def.alias) + '.</p>';
+            }
+            return confirmDialog(title, body, ok, on);
+        }
+
+        $drawer.on('click', '[data-fw]', function () {
+            var h = selectedHost(), key = $(this).data('fw'), on = $(this).data('on') === 1, $b = $(this);
+            if (!h || fwBusy) { return; }
+            fwDialog(key, on, h).done(function () {
+                fwBusy = true;
+                $b.prop('disabled', true).html(icon('spinner fa-pulse') + ' Applying...');
+                setMember(key, h.mac, on).done(function () {
+                    fwDone((h.name || h.ip) + (on ? ' is now ' : ' is no longer ') + FW[key].label + '.');
+                }).fail(function (err) {
+                    fwBusy = false;
+                    renderEdit();
+                    fwMessage('danger', esc(why(err)));
+                });
             });
         });
         $drawer.on('click', '[data-fwd-del]', function () {
@@ -1313,10 +1334,11 @@
         });
         $root.on('click', '[data-unrestrict]', function () {
             var $b = $(this), key = $b.data('unrestrict'), mac = $b.data('mac');
-            if (!$b.data('armed')) { $b.data('armed', true).addClass('btn-primary').html(icon('unlock') + ' Confirm'); return; }
-            $b.prop('disabled', true).html(icon('spinner fa-pulse'));
-            setMember(key, mac, false).always(function () {
-                loadFirewall().always(function () { $root.find('.nm-restrict').html(restrictionsHtml()); draw(); if (selected) { renderEdit(); } });
+            fwDialog(key, false, model.hosts[mac] || {name: mac}).done(function () {
+                $b.prop('disabled', true).html(icon('spinner fa-pulse'));
+                setMember(key, mac, false).always(function () {
+                    loadFirewall().always(function () { $root.find('.nm-restrict').html(restrictionsHtml()); draw(); if (selected) { renderEdit(); } });
+                });
             });
         });
 
