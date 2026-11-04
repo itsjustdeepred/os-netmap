@@ -472,6 +472,8 @@
             '  <label class="nm-check"><input type="checkbox" class="nm-active"> talking now</label>' +
             '  <label class="nm-check"><input type="checkbox" class="nm-offline"> offline too</label>' +
             '  <label class="nm-check" title="Devices with open ports at their last scan"><input type="checkbox" class="nm-withports"> open ports</label>' +
+            '  <label class="nm-check" title="Look up the names of remote addresses the DNS cache does not know (reverse DNS) in the device panel: ' +
+            'history, connections and blocked packets"><input type="checkbox" class="nm-resolve"> resolve hostnames</label>' +
             '  <select class="form-control input-sm nm-sort"><option value="traffic">by traffic</option><option value="name">by name</option>' +
             '    <option value="ip">by address</option></select>' +
             '  <button type="button" class="btn btn-default btn-sm nm-new-btn" title="Devices not approved yet">' +
@@ -987,7 +989,8 @@
             });
         }
 
-        $drawer.on('change', '.nm-resolve', function () {
+        $root.find('.nm-resolve').prop('checked', resolveNames);
+        $root.on('change', '.nm-resolve', function () {
             resolveNames = this.checked;
             try { window.localStorage.setItem('netmap.resolve', resolveNames ? '1' : '0'); } catch (e) { /* ignore */ }
             renderDrawer();
@@ -1071,9 +1074,7 @@
                 '<h5>History <span class="small text-muted">from Insight (NetFlow)</span> <select class="form-control input-sm nm-hist-span">' +
                 '<option value="1"' + (histSpan === 1 ? ' selected' : '') + '>last 24 hours</option><option value="7"' + (histSpan === 7 ? ' selected' : '') +
                 '>last 7 days</option><option value="30"' + (histSpan === 30 ? ' selected' : '') + '>last 30 days</option></select></h5>' +
-                '<div class="nm-resolve-row"><label class="nm-switch"><input type="checkbox" class="nm-resolve"' + (resolveNames ? ' checked' : '') +
-                '><span></span></label> <span>Resolve hostnames</span> <span class="small text-muted">names of the addresses the DNS cache ' +
-                'does not know (reverse DNS), also in Connections and Blocked</span></div>' +
+
                 '<div class="nm-hist">' + historyHtml() + '</div>' +
                 '<h5>Connections <span class="badge">' + esc(conns.length) + '</span></h5>' + connHtml +
                 '<h5>Firewall rules for this device <a class="small" href="/ui/firewall/filter/' + (h.net ? '#interface=' +
