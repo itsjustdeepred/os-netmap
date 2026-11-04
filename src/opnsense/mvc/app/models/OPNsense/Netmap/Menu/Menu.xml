@@ -1,5 +1,5 @@
 <menu>
-    <Reporting>
-        <NetworkMap VisibleName="Network Map" cssClass="fa fa-sitemap fa-fw" order="5" url="/ui/netmap/"/>
-    </Reporting>
+    <NetworkMap VisibleName="Network Map" cssClass="fa fa-sitemap fa-fw" order="45">
+        <Map VisibleName="Map" order="10" url="/ui/netmap/"/>
+    </NetworkMap>
 </menu>

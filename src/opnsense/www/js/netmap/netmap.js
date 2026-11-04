@@ -319,6 +319,7 @@
             var cu = self.custom[h.mac] || {}, res = self.kea.res[h.mac] || null;
             h.custom = cu;
             h.res = res;
+            h.approved = !!cu.approved;
             h.autoName = (res && (res.description || res.hostname)) ||
                 (ic && (ic.description || ic.hostname || ic.port_label || ic.cloud_name)) || (h.lease && h.lease.hostname) || h.arpName || '';
             h.name = cu.name || h.autoName;
@@ -470,11 +471,14 @@
             '  <label class="nm-check"><input type="checkbox" class="nm-offline"> offline too</label>' +
             '  <select class="form-control input-sm nm-sort"><option value="traffic">by traffic</option><option value="name">by name</option>' +
             '    <option value="ip">by address</option></select>' +
+            '  <button type="button" class="btn btn-default btn-sm nm-new-btn" title="Devices not approved yet">' +
+            icon('star') + ' New <span class="badge nm-new-count"></span></button>' +
             '  <button type="button" class="btn btn-default btn-sm nm-restrict-btn" title="Banned devices, devices without Internet, port forwards">' +
             icon('ban') + ' Restrictions <span class="badge nm-restrict-count"></span></button>' +
             '  <span class="nm-status text-muted"></span>' +
             '</div>' +
             '<div class="nm-restrict" style="display:none"></div>' +
+            '<div class="nm-adopt"></div>' +
             '<div class="nm-chips"></div>' +
             '<div class="nm-stage"></div>' +
             '<div class="nm-drawer" aria-hidden="true"></div>');
@@ -522,6 +526,7 @@
             if (filters.link && (filters.link === 'none' ? h.link : h.link !== filters.link)) { return false; }
             if (filters.type && h.type !== filters.type) { return false; }
             if (filters.active && !(st.traffic.up + st.traffic.down > 0)) { return false; }
+            if (onlyNew && h.approved) { return false; }
             if (filters.q) {
                 var hay = [h.name, h.ip, h.mac, h.vendor, TYPES[h.type][0], h.ic && h.ic.ssid, h.ic && h.ic.ap].join(' ').toLowerCase();
                 if (hay.indexOf(filters.q) < 0) { return false; }
@@ -564,7 +569,8 @@
                 '" data-mac="' + esc(h.mac) + '" tabindex="0" role="button" style="--net:' + (h.net ? h.net.color : '#999') + '">' +
                 '<span class="nm-ico" title="' + esc(TYPES[h.type][0] + (h.typeSource ? ' (from ' + h.typeSource + ')' : '')) + '">' +
                 icon(TYPES[h.type][1]) + '</span>' +
-                '<span class="nm-body"><span class="nm-name">' + esc(h.name || h.ip || h.mac) + '</span>' +
+                '<span class="nm-body"><span class="nm-name">' + (h.approved || !anyApproved() ? '' : '<span class="nm-new-tag">new</span>') +
+                esc(h.name || h.ip || h.mac) + '</span>' +
                 '<span class="nm-sub">' + esc(h.name ? h.ip : (h.random ? 'private MAC' : h.vendor || h.mac)) + '</span>' +
                 '<span class="nm-rate">' + (live > 0 ? icon('arrow-down') + esc(rate(t.down)) + ' ' + icon('arrow-up') + esc(rate(t.up))
                     : (t.conns ? esc(t.conns) + ' conn.' : (h.online ? 'idle' : 'offline ' + esc(ago(h.lastSeen))))) + '</span></span>' +
@@ -682,6 +688,7 @@
             var nBlocked = 0;
             $.each(FW, function (_, def) { var a = model.fw.aliases[def.alias]; nBlocked += a ? a.content.length : 0; });
             $root.find('.nm-restrict-count').text(nBlocked || '');
+            adoptBanner();
             // cable / Wi-Fi filters only make sense when switch and access point data tell it
             var exact = !!(model.instanton && model.instanton.clients);
             $root.find('.nm-toolbar .nm-link').toggle(exact);
@@ -977,6 +984,12 @@
             var $e = $drawer.find('.nm-dedit');
             if (!h || !$e.length) { return; }
             var cu = h.custom || {}, res = h.res, html = '';
+            if (!h.approved) {
+                html += '<div class="alert alert-info nm-new-alert">' + icon('star') + ' <b>Not approved yet.</b> ' +
+                    (h.firstSeen ? 'First seen ' + esc(ago(h.firstSeen)) + '. ' : '') + 'Approve it if you know it, ban it if you do not.' +
+                    '<div class="nm-new-actions"><button type="button" class="btn btn-success btn-xs" data-approve>' + icon('check') + ' Approve</button> ' +
+                    '<button type="button" class="btn btn-danger btn-xs" data-fw="banned" data-on="1">' + icon('ban') + ' Ban</button></div></div>';
+            }
             if (editing === 'device') {
                 html += '<form class="nm-form" data-form="device">' +
                     field('Name in the map', 'name', cu.name || '', 'Leave empty to use ' + (h.autoName ? '"' + esc(h.autoName) + '"' : 'the address') + '.', ' maxlength="64"') +
@@ -1439,6 +1452,46 @@
                         .done(function () { loadFirewall().always(function () { renderDrawer(); }); })
                         .fail(function (err) { $c.prop('disabled', false); fwMessage('danger', esc(why(err))); });
                 });
+        });
+
+        // ---- new devices ----------------------------------------------------
+        var onlyNew = false;
+
+        function anyApproved() {
+            for (var mac in model.custom) { if (model.custom[mac].approved) { return true; } }
+            return false;
+        }
+
+        function approve(macs) {
+            return call('netmap/devices/approve', {macs: macs}).then(function () { return loadHosts(); });
+        }
+
+        function newDevices() {
+            return $.grep($.map(model.hosts, function (h) { return h; }), function (h) { return h.online && !h.approved; });
+        }
+
+        function adoptBanner() {
+            var fresh = newDevices();
+            var $a = $root.find('.nm-adopt');
+            $root.find('.nm-new-count').text(anyApproved() && fresh.length ? fresh.length : '');
+            $root.find('.nm-new-btn').toggleClass('active', onlyNew);
+            if (anyApproved() || !fresh.length) { $a.empty(); return; }
+            $a.html('<div class="alert alert-info nm-adopt-box">' + icon('star') + ' <b>Know your network.</b> Approve the ' + esc(fresh.length) +
+                ' devices online now: from then on, every device that joins for the first time is marked <span class="nm-new-tag">new</span> ' +
+                'until you approve or ban it. <button type="button" class="btn btn-success btn-xs" data-approve-all>' + icon('check') +
+                ' Approve all ' + esc(fresh.length) + '</button></div>');
+        }
+
+        $root.on('click', '.nm-new-btn', function () { onlyNew = !onlyNew; draw(); });
+        $root.on('click', '[data-approve-all]', function () {
+            var $b = $(this).prop('disabled', true).html(icon('spinner fa-pulse') + ' Approving...');
+            approve($.map(newDevices(), function (h) { return h.mac; })).always(function () { draw(); })
+                .fail(function (err) { $b.prop('disabled', false).text('Approve all'); $root.find('.nm-adopt .alert').append(' <b class="text-danger">' + esc(why(err)) + '</b>'); });
+        });
+        $drawer.on('click', '[data-approve]', function () {
+            var h = selectedHost();
+            $(this).prop('disabled', true);
+            approve([h.mac]).always(function () { renderEdit(); renderDrawer(); draw(); });
         });
 
         // ---- restrictions overview (toolbar) -----------------------------

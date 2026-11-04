@@ -234,3 +234,11 @@
 .nm-switch input:checked + span { background: #2e9e6b; }
 .nm-switch input:checked + span::after { transform: translateX(14px); }
 .nm-switch input:disabled + span { opacity: 0.5; }
+
+/* new devices */
+.nm-new-tag { display: inline-block; font-size: 9px; font-weight: 700; text-transform: uppercase; color: #fff; background: #c9822b;
+    border-radius: 3px; padding: 0 4px; margin-right: 4px; vertical-align: 1px; }
+.nm-adopt-box, .nm-new-alert { padding: 8px 12px; }
+.nm-adopt-box .btn { margin-left: 8px; }
+.nm-new-actions { margin-top: 6px; }
+.nm-toolbar .nm-new-btn.active { background: #c9822b; border-color: #c9822b; color: #fff; }

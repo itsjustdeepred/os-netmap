@@ -49,6 +49,7 @@ class DevicesController extends ApiMutableModelControllerBase
                 'name' => (string)$d->name,
                 'kind' => (string)$d->kind,
                 'notes' => (string)$d->notes,
+                'approved' => (string)$d->approved === '1',
             ];
         }
         return ['devices' => $out];
@@ -78,7 +79,9 @@ class DevicesController extends ApiMutableModelControllerBase
                 break;
             }
         }
-        if (implode('', $values) === '') {
+        // an approved device keeps its entry even without name, kind or notes
+        $approved = $found !== null && (string)$mdl->getNodeByReference('devices.device.' . $found)->approved === '1';
+        if (implode('', $values) === '' && !$approved) {
             if ($found !== null) {
                 $mdl->devices->device->del($found);
             }
@@ -96,5 +99,45 @@ class DevicesController extends ApiMutableModelControllerBase
         $mdl->serializeToConfig();
         Config::getInstance()->save();
         return ['result' => 'saved'];
+    }
+
+    /**
+     * POST macs: list of MAC addresses to mark as known (approved).
+     */
+    public function approveAction()
+    {
+        if (!$this->request->isPost()) {
+            return ['result' => 'failed', 'message' => 'POST required'];
+        }
+        $macs = $this->request->getPost('macs');
+        if (!is_array($macs) || count($macs) > 2000) {
+            return ['result' => 'failed', 'message' => 'invalid list'];
+        }
+        $mdl = $this->getModel();
+        $byMac = [];
+        foreach ($mdl->devices->device->iterateItems() as $uuid => $d) {
+            $byMac[strtolower((string)$d->mac)] = $d;
+        }
+        $count = 0;
+        foreach ($macs as $mac) {
+            $mac = strtolower(trim((string)$mac));
+            if (!preg_match('/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/', $mac)) {
+                continue;
+            }
+            $node = $byMac[$mac] ?? $mdl->devices->device->Add();
+            $node->setNodes(['mac' => $mac, 'approved' => '1']);
+            $byMac[$mac] = $node;
+            $count++;
+        }
+        $messages = [];
+        foreach ($mdl->performValidation() as $msg) {
+            $messages[] = $msg->getMessage();
+        }
+        if (count($messages)) {
+            return ['result' => 'failed', 'message' => implode(' ', $messages)];
+        }
+        $mdl->serializeToConfig();
+        Config::getInstance()->save();
+        return ['result' => 'saved', 'count' => $count];
     }
 }
