@@ -1,0 +1,20 @@
+A map of every device on the networks of the firewall, with how it is
+connected, how much it talks and what the firewall does with its traffic.
+
+* Devices from host discovery, DHCP leases and the ARP table, grouped by
+  network (VLAN), with their kind guessed from name and manufacturer.
+* When the Instant On plugin is installed: the physical tree with
+  switches, access points, cable or Wi-Fi links, port, speed and signal.
+* Live traffic per device from the firewall state table, with remote
+  hosts named from the DNS resolver cache.
+* Packets blocked by the firewall for each device, with the rule.
+* Traffic volume history from Insight (NetFlow) when it is enabled.
+
+The plugin only reads.
+
+Plugin Changelog
+================
+
+0.1
+
+* Initial release

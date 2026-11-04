@@ -1,0 +1,17 @@
+<acl>
+    <page-reporting-netmap>
+        <name>Reporting: Network Map</name>
+        <description>View the network map, the traffic of each device and the packets the firewall blocked for it. Grants read access to the data the map is built from.</description>
+        <patterns>
+            <pattern>ui/netmap/*</pattern>
+            <pattern>api/interfaces/overview/interfaces_info*</pattern>
+            <pattern>api/hostdiscovery/service/search*</pattern>
+            <pattern>api/kea/leases4/search*</pattern>
+            <pattern>api/diagnostics/interface/get_arp*</pattern>
+            <pattern>api/diagnostics/firewall/query_states*</pattern>
+            <pattern>api/diagnostics/firewall/log*</pattern>
+            <pattern>api/diagnostics/networkinsight/*</pattern>
+            <pattern>api/unbound/diagnostics/dumpcache*</pattern>
+        </patterns>
+    </page-reporting-netmap>
+</acl>
