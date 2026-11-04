@@ -34,7 +34,7 @@ with its traffic. Read-only.
   aliases (`netmap_banned`, `netmap_nowan`), so the block follows the device
   when its address changes; the two block rules ("Network Map: ...") are
   created on every internal network the first time they are needed and
-  applied with a rollback savepoint. *Port forwards* to the device are
+  applied. *Port forwards* to the device are
   listed and can be added (WAN address, protocol, port or range, device
   port) or deleted. The **Restrictions** button lists blocked devices and
   every port forward. These changes use the firewall API with the
@@ -64,7 +64,7 @@ Only core OPNsense APIs, read from the browser:
 | Physical links, Wi-Fi | `instanton/status/{clients,topology}` (optional) |
 | Open ports | `netmap/scan/{start,status}` (this plugin, nmap) |
 | Names, kinds, notes | `netmap/devices/{list,save}` (this plugin) |
-| Bans, Internet block | `firewall/alias/{search,add,set}_item`, `firewall/alias/reconfigure`, `firewall/filter/{search,add}_rule`, `firewall/filter/{savepoint,apply,cancel_rollback}` |
+| Bans, Internet block | `firewall/alias/{search,add,set}_item`, `firewall/alias/reconfigure`, `firewall/filter/{search,add}_rule`, `firewall/filter/apply` |
 | Port forwards | `firewall/d_nat/{search,add,del}_rule`, `firewall/d_nat/apply` |
 | DHCP reservations | `kea/dhcpv4/{search,add,set,del}_reservation`, `kea/dhcpv4/search_subnet`, `kea/service/reconfigure` |
 

@@ -1153,12 +1153,10 @@
         }
 
         function applyRules() {
-            // apply with the firewall's own safety net: a savepoint rolled back unless confirmed
-            return call('firewall/filter/savepoint').then(function (sp) {
-                return call('firewall/filter/apply/' + encodeURIComponent(sp.revision)).then(function () {
-                    return call('firewall/filter/cancel_rollback/' + encodeURIComponent(sp.revision));
-                });
-            });
+            // OPNsense 26.x has no savepoint endpoint any more: the new rules are applied directly.
+            // They only block traffic from the devices in the aliases, and the automatic anti-lockout
+            // rule keeps the web interface reachable.
+            return call('firewall/filter/apply');
         }
 
         function setMember(key, mac, on) {
@@ -1235,12 +1233,13 @@
             var def = FW[key];
             var first = on && !model.fw.rules[key];
             var text = on ? (key === 'banned' ? 'Ban <b>' + esc(h.name || h.ip) + '</b>? Its traffic through the firewall is blocked: Internet, ' +
-                'other networks and services of the firewall such as DNS. Devices on the same network still reach it through the switch.'
+                'other networks and services of the firewall such as DNS. Devices on the same network still reach it through the switch. ' +
+                'Do not ban the computer you are using.'
                 : 'Block Internet access for <b>' + esc(h.name || h.ip) + '</b>? It can still reach the local networks.')
                 : (key === 'banned' ? 'Unban <b>' + esc(h.name || h.ip) + '</b>?' : 'Allow Internet access for <b>' + esc(h.name || h.ip) + '</b>?');
             if (first) {
                 text += '<br><span class="text-muted">First use: the rule "' + esc(def.rule) + '" is created on every internal network ' +
-                    'and applied with a rollback savepoint.</span>';
+                    'and the firewall rules are applied.</span>';
             }
             $drawer.find('.nm-fw-confirm').html('<div class="alert alert-warning small">' + text + '<div style="margin-top:6px">' +
                 '<button type="button" class="btn btn-' + (on ? 'danger' : 'primary') + ' btn-xs" data-fw-go="' + key + '" data-on="' + (on ? 1 : 0) +
