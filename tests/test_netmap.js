@@ -24,3 +24,8 @@ assert.ok(!N.inCidr('10.0.21.5', '10.0.20.1/24'));
 assert.ok(N.inCidr('192.168.1.10', '192.168.0.0/16'));
 assert.ok(!N.inCidr('nonsense', '10.0.0.0/8'));
 console.log('netmap.js: all tests passed');
+assert.strictEqual(N.portLabel('17', '67'), 'UDP 67 · DHCP');
+assert.strictEqual(N.portLabel('6', '443'), 'TCP 443 · HTTPS');
+assert.strictEqual(N.portLabel('tcp', '22'), 'TCP 22 · SSH');
+assert.strictEqual(N.portLabel('6', '4007'), 'TCP 4007');
+console.log('port labels: ok');

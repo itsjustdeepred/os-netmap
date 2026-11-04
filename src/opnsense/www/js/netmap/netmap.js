@@ -65,6 +65,24 @@
             '&value=' + encodeURIComponent(value);
     }
 
+    // IP protocol numbers and well-known ports, for flows reported as numbers (Insight / NetFlow)
+    var PROTOCOLS = {1: 'ICMP', 2: 'IGMP', 6: 'TCP', 17: 'UDP', 47: 'GRE', 50: 'ESP', 58: 'ICMPv6', 89: 'OSPF', 112: 'VRRP'};
+    var SERVICES = {20: 'FTP data', 21: 'FTP', 22: 'SSH', 23: 'Telnet', 25: 'SMTP', 53: 'DNS', 67: 'DHCP', 68: 'DHCP', 80: 'HTTP',
+        110: 'POP3', 123: 'NTP', 137: 'NetBIOS', 138: 'NetBIOS', 139: 'NetBIOS', 143: 'IMAP', 161: 'SNMP', 389: 'LDAP', 443: 'HTTPS',
+        445: 'SMB', 465: 'SMTPS', 514: 'syslog', 554: 'RTSP', 587: 'SMTP', 853: 'DNS over TLS', 993: 'IMAPS', 995: 'POP3S',
+        1883: 'MQTT', 1900: 'SSDP', 3389: 'RDP', 3478: 'STUN', 4007: '', 5000: '', 5353: 'mDNS', 5683: 'CoAP', 8008: 'HTTP',
+        8080: 'HTTP', 8443: 'HTTPS', 8883: 'MQTT TLS', 8000: 'HTTP', 51820: 'WireGuard'};
+
+    function protoName(p) {
+        var n = String(p || '');
+        return (/^\d+$/.test(n) ? PROTOCOLS[+n] || 'proto ' + n : n.toUpperCase());
+    }
+
+    function portLabel(proto, port) {
+        var svc = port ? SERVICES[+port] : '';
+        return protoName(proto) + (port ? ' ' + port : '') + (svc ? ' · ' + svc : '');
+    }
+
     function ipNum(ip) {
         var p = String(ip).split('.');
         return p.length === 4 ? ((+p[0] << 24) >>> 0) + (+p[1] << 16) + (+p[2] << 8) + (+p[3]) : null;
@@ -1037,8 +1055,7 @@
             var conns = drawerData.rows;
             function remoteHtml(ip, port, proto) {
                 var name = remoteName(ip);
-                return '<span class="nm-r-name">' + esc(name || ip) + '</span><span class="nm-r-port">' + esc(String(proto || '').toUpperCase() +
-                    (port ? ' ' + port : '')) + '</span>';
+                return '<span class="nm-r-name">' + esc(name || ip) + '</span><span class="nm-r-port">' + esc(portLabel(proto, port)) + '</span>';
             }
             var connHtml = conns.length ? '<ul class="nm-list">' + $.map(conns.slice(0, 80), function (c) {
                 var name = remoteName(c.remote), live = c.up + c.down > 0;
@@ -1799,7 +1816,7 @@
                 '<ul class="nm-list nm-hist-list">' + $.map(list.slice(0, 15), function (p) {
                     var name = remoteName(p.ip);
                     return '<li><div class="nm-l1"><span class="nm-r-name">' + esc(name || p.ip) + '</span><span class="nm-r-port">' +
-                        esc(String(p.proto || '').toUpperCase() + ' ' + (p.port || '')) + '</span><span class="nm-r-rate small">' +
+                        esc(portLabel(p.proto, p.port)) + '</span><span class="nm-r-rate small">' +
                         esc(bytes(p.total)) + '</span></div><div class="nm-hbar"><i style="width:' + Math.max(2, Math.round(p.total * 100 / max)) +
                         '%"></i></div>' + (name ? '<div class="nm-l2"><span>' + esc(p.ip) + '</span></div>' : '') + '</li>';
                 }).join('') + '</ul>';
@@ -2009,5 +2026,5 @@
         });
     }
 
-    window.Netmap = {start: start, guessType: guessType, inCidr: inCidr};
+    window.Netmap = {start: start, guessType: guessType, inCidr: inCidr, portLabel: portLabel};
 }(window, jQuery));
