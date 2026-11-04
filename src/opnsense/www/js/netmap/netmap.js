@@ -1203,7 +1203,7 @@
                 ['nowan', 'Internet access', 'blocked: local networks only', 'allowed', 'Block Internet', 'Allow Internet']], function (_, x) {
                 var on = isMember(x[0], h.mac);
                 html += '<div class="nm-edit-row nm-fw-row"><button type="button" class="btn btn-xs ' +
-                    (on ? 'btn-default' : (x[0] === 'banned' ? 'btn-danger' : 'btn-warning')) + '" data-fw="' + x[0] + '" data-on="' + (on ? 0 : 1) + '">' +
+                    (on ? 'btn-success' : (x[0] === 'banned' ? 'btn-danger' : 'btn-warning')) + '" data-fw="' + x[0] + '" data-on="' + (on ? 0 : 1) + '">' +
                     icon(on ? 'unlock' : 'ban') + ' ' + esc(on ? x[5] : x[4]) + '</button><div><b>' + esc(x[1]) + ':</b> ' +
                     (on ? '<span class="text-danger">' + esc(x[2]) + '</span>' : '<span class="text-success">' + esc(x[3]) + '</span>') + '</div></div>';
             });
@@ -1251,7 +1251,7 @@
                 '<div class="modal-content"><div class="modal-header"><button type="button" class="close" data-dismiss="modal" aria-label="Close">' +
                 '&times;</button><h4 class="modal-title">' + esc(title) + '</h4></div><div class="modal-body">' + body + '</div>' +
                 '<div class="modal-footer"><button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>' +
-                '<button type="button" class="btn btn-' + (danger ? 'danger' : 'primary') + ' nm-modal-ok">' + esc(okLabel) + '</button>' +
+                '<button type="button" class="btn btn-' + (danger ? 'danger' : 'success') + ' nm-modal-ok">' + esc(okLabel) + '</button>' +
                 '</div></div></div></div>');
             $m.find('.nm-modal-ok').on('click', function () { done.resolve(); $m.modal('hide'); });
             $m.on('hidden.bs.modal', function () { if (done.state() === 'pending') { done.reject(); } $m.remove(); });
@@ -1342,7 +1342,7 @@
                     var h = model.hosts[mac];
                     rows.push('<li><div class="nm-l1"><span class="nm-r-name">' + esc(h ? (h.name || h.ip) : mac) + '</span><span class="nm-r-port">' +
                         esc(mac + (h && h.ip ? ' · ' + h.ip : '')) + '</span><span class="label label-' + (key === 'banned' ? 'danger' : 'warning') + '">' +
-                        esc(key === 'banned' ? 'banned' : 'no Internet') + '</span><span class="nm-r-rate"><button type="button" class="btn btn-default btn-xs" ' +
+                        esc(key === 'banned' ? 'banned' : 'no Internet') + '</span><span class="nm-r-rate"><button type="button" class="btn btn-success btn-xs" ' +
                         'data-unrestrict="' + key + '" data-mac="' + esc(mac) + '">' + icon('unlock') + ' ' + (key === 'banned' ? 'Unban' : 'Allow Internet') +
                         '</button></span></div></li>');
                 });
