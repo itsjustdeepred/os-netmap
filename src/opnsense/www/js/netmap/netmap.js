@@ -1721,7 +1721,6 @@
                     '<li>A rule for one device follows its address ' + esc(h.ip) + '.</li></ul>';
             }
             var scope = 'device';
-            $(document).one('change.nmscope', 'input[name=nm-scope]', function () { scope = this.value; });
             $(document).on('change.nmscope', 'input[name=nm-scope]', function () { scope = this.value; });
             confirmDialog(action === 'remove' ? 'Remove DNS rule' : (action === 'block' ? 'Block a domain' : 'Allow a domain'), body,
                 action === 'remove' ? 'Remove rule' : (action === 'block' ? 'Block' : 'Allow'), action === 'block').always(function () {
