@@ -785,6 +785,12 @@
         }
 
         // ---- device drawer ---------------------------------------------
+        // the panel is split in tabs; the last one used is remembered
+        var TABS = [['device', 'Device', 'info-circle'], ['traffic', 'Traffic', 'exchange'], ['security', 'Security', 'shield'],
+            ['dns', 'DNS', 'globe']];
+        var drawerTab = 'device';
+        try { drawerTab = window.localStorage.getItem('netmap.tab') || 'device'; } catch (e) { /* ignore */ }
+
         var drawerData = {rows: [], prev: {}, history: [], log: [], scan: null};
 
         function openDrawer(mac) {
@@ -812,6 +818,14 @@
         }
 
         $drawer.on('click', '.nm-close', closeDrawer);
+        $drawer.on('click', '[data-dtab]', function (e) {
+            e.preventDefault();
+            drawerTab = $(this).data('dtab');
+            try { window.localStorage.setItem('netmap.tab', drawerTab); } catch (ex) { /* ignore */ }
+            $drawer.attr('data-tab', drawerTab).find('.nm-dtabs li').removeClass('active');
+            $(this).parent().addClass('active');
+            $drawer.scrollTop(0);
+        });
         $(document).on('keydown', function (e) { if (e.key === 'Escape' && selected) { closeDrawer(); } });
         // a click anywhere outside the panel closes it (a click on another device opens that one instead)
         $(document).on('mousedown', function (e) {
@@ -1083,31 +1097,42 @@
             }).join('') + '</ul>'
                 : '<p class="text-muted small">Nothing blocked in the latest firewall log entries. Only rules with logging enabled ' +
                     '(and the default block rules) are recorded.</p>';
+            var nConn = conns.length, nBlk = blk.length;
+            if (drawerTab === 'dns' && !opts.adguard) { drawerTab = 'device'; }
             $drawer.find('.nm-dtop').html('<div class="nm-dhead"><span class="nm-ico">' + icon(TYPES[h.type][1]) + '</span><div><h4>' + esc(h.name || h.ip || h.mac) +
                 '</h4><small class="text-muted">' + esc(TYPES[h.type][0]) + (h.ip ? ' &middot; ' + esc(h.ip) : '') + '</small></div>' +
-                '<button type="button" class="close nm-close" aria-label="Close">&times;</button></div>');
+                '<button type="button" class="close nm-close" aria-label="Close">&times;</button></div>' +
+                '<ul class="nav nav-tabs nm-dtabs">' + $.map(TABS, function (t) {
+                    if (t[0] === 'dns' && !opts.adguard) { return ''; }
+                    var count = t[0] === 'traffic' ? nConn : (t[0] === 'security' ? nBlk : 0);
+                    return '<li' + (drawerTab === t[0] ? ' class="active"' : '') + '><a href="#" data-dtab="' + t[0] + '">' + icon(t[2]) + ' ' + esc(t[1]) +
+                        (count ? ' <span class="badge">' + esc(count) + '</span>' : '') + '</a></li>';
+                }).join('') + '</ul>');
+            $drawer.attr('data-tab', drawerTab);
             $drawer.find('.nm-dlive').html('<div class="nm-dbody">' +
-                '<h5>Live traffic through the firewall</h5>' + chart() +
-                '<table class="table table-condensed nm-facts"><tbody>' + $.map(facts, function (f) {
+                // Device
+                '<div class="nm-pane" data-pane="device"><table class="table table-condensed nm-facts"><tbody>' + $.map(facts, function (f) {
                     return f[1] ? '<tr><th>' + esc(f[0]) + '</th><td>' + f[1] + '</td></tr>' : '';
-                }).join('') + '</tbody></table>' +
-                '<h5>Open ports</h5><div class="nm-scan">' + scanHtml(h) + '</div>' +
-                (opts.adguard ? '<h5>DNS <span class="small text-muted">from AdGuard Home</span> <a href="#" class="small" data-dns-reload>' +
-                    icon('refresh') + '</a></h5><div class="nm-dns">' + adguardHtml(h) + '</div>' : '') +
+                }).join('') + '</tbody></table></div>' +
+                // Traffic
+                '<div class="nm-pane" data-pane="traffic"><h5>Live traffic through the firewall</h5>' + chart() +
+                '<h5>Connections <span class="badge">' + esc(nConn) + '</span></h5>' + connHtml +
                 '<h5>History <span class="small text-muted">from Insight (NetFlow)</span> <select class="form-control input-sm nm-hist-span">' +
                 '<option value="1"' + (histSpan === 1 ? ' selected' : '') + '>last 24 hours</option><option value="7"' + (histSpan === 7 ? ' selected' : '') +
                 '>last 7 days</option><option value="30"' + (histSpan === 30 ? ' selected' : '') + '>last 30 days</option></select></h5>' +
-
-                '<div class="nm-hist">' + historyHtml() + '</div>' +
-                '<h5>Connections <span class="badge">' + esc(conns.length) + '</span></h5>' + connHtml +
+                '<div class="nm-hist">' + historyHtml() + '</div></div>' +
+                // Security
+                '<div class="nm-pane" data-pane="security">' +
+                '<h5>Blocked by the firewall <span class="badge">' + esc(nBlk) + '</span>' + (h.ip ? ' <a class="small" href="' +
+                    esc(logLink('__addr__', h.ip)) + '" target="_blank">' + icon('external-link') + ' live log</a>' : '') + '</h5>' + blkHtml +
                 '<h5>Firewall rules for this device <a class="small" href="/ui/firewall/filter/' + (h.net ? '#interface=' +
                     encodeURIComponent(h.net.id) : '') + '" target="_blank">' + icon('external-link') + ' all rules of ' + esc(h.net ? h.net.name : 'the firewall') +
                     '</a></h5>' + rulesHtml(h) +
-                '<h5>Blocked by the firewall <span class="badge">' + esc(blk.length) + '</span>' + (h.ip ? ' <a class="small" href="' +
-                    esc(logLink('__addr__', h.ip)) + '" target="_blank">' + icon('external-link') + ' live log</a>' : '') + '</h5>' + blkHtml +
-                '<p class="small"><a href="' + esc(logLink('__addr__', h.ip)) + '" target="_blank">' + icon('external-link') +
-                ' Live firewall log of ' + esc(h.ip) + '</a> &nbsp; ' +
-                '<a href="/ui/diagnostics/networkinsight" target="_blank">' + icon('external-link') + ' Insight history</a></p></div>');
+                '<h5>Open ports</h5><div class="nm-scan">' + scanHtml(h) + '</div></div>' +
+                // DNS
+                (opts.adguard ? '<div class="nm-pane" data-pane="dns"><h5>Domains asked <span class="small text-muted">from AdGuard Home</span> ' +
+                    '<a href="#" class="small" data-dns-reload>' + icon('refresh') + '</a></h5><div class="nm-dns">' + adguardHtml(h) + '</div></div>' : '') +
+                '</div>');
             lookupNames();
         }
 
@@ -1145,7 +1170,7 @@
             var h = selectedHost();
             var $e = $drawer.find('.nm-dedit');
             if (!h || !$e.length) { return; }
-            var cu = h.custom || {}, res = h.res, html = '';
+            var cu = h.custom || {}, res = h.res, html = '<div class="nm-pane" data-pane="device">';
             if (!h.approved && opts.new_devices) {
                 html += '<div class="alert alert-info nm-new-alert">' + icon('star') + ' <b>Not approved yet.</b> ' +
                     (h.firstSeen ? 'First seen ' + esc(ago(h.firstSeen)) + '. ' : '') + 'Approve it if you know it, ban it if you do not.' +
@@ -1195,7 +1220,7 @@
                 html += '<div class="alert alert-info nm-apply">' + icon('info-circle') + ' Reservation changes are saved but Kea does not use them yet. ' +
                     '<button type="button" class="btn btn-success btn-xs" data-kea-apply>Apply</button></div>';
             }
-            html += '<div class="nm-edit-msg"></div></div>' + fwHtml(h);
+            html += '<div class="nm-edit-msg"></div></div></div><div class="nm-pane" data-pane="security">' + fwHtml(h) + '</div>';
             $e.html(html);
         }
 
