@@ -801,7 +801,7 @@
             var h = model.hosts[selected];
             if (!h || !h.ip) { return; }
             var mac = selected;
-            get('netmap/scan/status/' + encodeURIComponent(h.mac)).done(function (d) {
+            get('netmap/scan/status/' + h.mac.replace(/:/g, '-')).done(function (d) {
                 if (selected !== mac) { return; }
                 drawerData.scan = d;
                 if (d && d.status === 'done') {
@@ -823,7 +823,7 @@
             if (!h || !h.ip) { return; }
             drawerData.scan = {status: 'running', profile: profile, started: Date.now() / 1000};
             renderDrawer();
-            search('netmap/scan/start/' + encodeURIComponent(h.mac) + '/' + encodeURIComponent(h.ip) + '/' + profile, {}).done(function (d) {
+            search('netmap/scan/start/' + h.mac.replace(/:/g, '-') + '/' + encodeURIComponent(h.ip) + '/' + profile, {}).done(function (d) {
                 drawerData.scan = d;
                 renderDrawer();
                 if (d && d.status === 'running') { timers.scan = setTimeout(loadScan, 3000); }
@@ -1070,10 +1070,10 @@
                 '<h5>Open ports</h5><div class="nm-scan">' + scanHtml(h) + '</div>' +
                 '<h5>History <span class="small text-muted">from Insight (NetFlow)</span> <select class="form-control input-sm nm-hist-span">' +
                 '<option value="1"' + (histSpan === 1 ? ' selected' : '') + '>last 24 hours</option><option value="7"' + (histSpan === 7 ? ' selected' : '') +
-                '>last 7 days</option><option value="30"' + (histSpan === 30 ? ' selected' : '') + '>last 30 days</option></select>' +
-                '<label class="nm-check nm-resolve-label" title="Look up the names of addresses the DNS cache does not know (reverse DNS), ' +
-                'also for the connections and blocked packets"><input type="checkbox" class="nm-resolve"' + (resolveNames ? ' checked' : '') +
-                '> resolve hostnames</label></h5>' +
+                '>last 7 days</option><option value="30"' + (histSpan === 30 ? ' selected' : '') + '>last 30 days</option></select></h5>' +
+                '<div class="nm-resolve-row"><label class="nm-switch"><input type="checkbox" class="nm-resolve"' + (resolveNames ? ' checked' : '') +
+                '><span></span></label> <span>Resolve hostnames</span> <span class="small text-muted">names of the addresses the DNS cache ' +
+                'does not know (reverse DNS), also in Connections and Blocked</span></div>' +
                 '<div class="nm-hist">' + historyHtml() + '</div>' +
                 '<h5>Connections <span class="badge">' + esc(conns.length) + '</span></h5>' + connHtml +
                 '<h5>Firewall rules for this device <a class="small" href="/ui/firewall/filter/' + (h.net ? '#interface=' +

@@ -64,7 +64,8 @@ class ScanController extends ApiControllerBase
         if (!$this->request->isPost()) {
             return ['status' => 'error', 'message' => 'POST required'];
         }
-        $mac = strtolower($mac);
+        // the page sends aa-bb-cc-dd-ee-ff: colons do not survive in a URL path
+        $mac = strtolower(str_replace('-', ':', $mac));
         if (!$this->validMac($mac) || !$this->valid($ip) || !in_array($profile, ['quick', 'full'], true)) {
             return ['status' => 'error', 'message' => 'invalid request'];
         }
@@ -73,7 +74,7 @@ class ScanController extends ApiControllerBase
 
     public function statusAction($mac = '')
     {
-        $mac = strtolower($mac);
+        $mac = strtolower(str_replace('-', ':', $mac));
         if (!$this->validMac($mac)) {
             return ['status' => 'error', 'message' => 'invalid MAC address'];
         }
