@@ -32,6 +32,12 @@ class IndexController extends \OPNsense\Base\IndexController
 {
     public function indexAction()
     {
+        // the OPNsense asset version only changes with OPNsense itself: add the plugin files' age
+        $mtime = 0;
+        foreach (['/usr/local/opnsense/www/js/netmap/netmap.js', '/usr/local/opnsense/www/css/netmap.css'] as $file) {
+            $mtime = max($mtime, (int)@filemtime($file));
+        }
+        $this->view->assetVersion = $mtime;
         $this->view->pick('OPNsense/Netmap/index');
     }
 }
