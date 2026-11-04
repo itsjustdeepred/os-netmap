@@ -1183,10 +1183,10 @@
                 'allowed', 'Ban', 'Unban'],
                 ['nowan', 'Internet access', 'blocked: local networks only', 'allowed', 'Block Internet', 'Allow Internet']], function (_, x) {
                 var on = isMember(x[0], h.mac);
-                html += '<div class="nm-edit-row nm-fw-row"><div><b>' + esc(x[1]) + ':</b> ' + (on ? '<span class="text-danger">' + esc(x[2]) + '</span>'
-                    : '<span class="text-success">' + esc(x[3]) + '</span>') + '</div><button type="button" class="btn btn-xs ' +
+                html += '<div class="nm-edit-row nm-fw-row"><button type="button" class="btn btn-xs ' +
                     (on ? 'btn-default' : (x[0] === 'banned' ? 'btn-danger' : 'btn-warning')) + '" data-fw="' + x[0] + '" data-on="' + (on ? 0 : 1) + '">' +
-                    icon(on ? 'unlock' : 'ban') + ' ' + esc(on ? x[5] : x[4]) + '</button></div>';
+                    icon(on ? 'unlock' : 'ban') + ' ' + esc(on ? x[5] : x[4]) + '</button><div><b>' + esc(x[1]) + ':</b> ' +
+                    (on ? '<span class="text-danger">' + esc(x[2]) + '</span>' : '<span class="text-success">' + esc(x[3]) + '</span>') + '</div></div>';
             });
             html += '<div class="nm-fw-confirm"></div>';
             var fwd = forwardsOf(h);

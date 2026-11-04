@@ -167,3 +167,11 @@
 .nm-dhcp h5 { margin: 14px 0 6px; font-weight: 600; }
 .nm-apply { margin: 8px 0 0; padding: 6px 10px; }
 .nm-edit-msg .alert { margin: 8px 0 0; padding: 6px 10px; }
+
+/* selects: the theme sets line-height equal to the height, which pushes the text down */
+.netmap select.form-control, .nm-drawer select.form-control { height: 30px; line-height: 1.4; padding: 4px 8px; }
+
+/* firewall controls next to their status */
+.nm-fw-row { justify-content: flex-start; align-items: center; gap: 10px; }
+.nm-fw-row .btn { min-width: 118px; text-align: left; }
+.nm-fw-row > div { min-width: 0; }
