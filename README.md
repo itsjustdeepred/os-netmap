@@ -6,7 +6,7 @@ with its traffic. Read-only.
 
 ## What it shows
 
-The page is under **Network Map > Map** in the main menu.
+The page is under **Network Map > Dashboard** in the main menu.
 
 * **Networks view** – the firewall on top and one panel per network (VLAN)
   with a card for every device: kind (camera, phone, printer, smart home,
@@ -112,7 +112,7 @@ sh install.sh
 ```
 
 `install.sh` also installs `nmap` from the OPNsense package repository
-when it is missing. Then open **Network Map > Map**. `uninstall.sh` removes the files.
+when it is missing. Then open **Network Map > Dashboard**. `uninstall.sh` removes the files.
 
 ## License
 

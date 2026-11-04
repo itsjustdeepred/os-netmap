@@ -26,4 +26,4 @@ chmod 0755 /usr/local/opnsense/scripts/netmap/*.py
 mkdir -p /var/db/netmap/scans && chmod 0750 /var/db/netmap /var/db/netmap/scans
 rm -f /tmp/opnsense_menu_cache.xml /tmp/opnsense_acl_cache.json /var/lib/php/tmp/opnsense_menu_cache.xml /var/lib/php/tmp/opnsense_acl_cache.json
 service configd restart
-echo ">>> done: open Network Map > Map"
+echo ">>> done: open Network Map > Dashboard"
