@@ -39,6 +39,14 @@ with its traffic. Read-only.
   port) or deleted. The **Restrictions** button lists blocked devices and
   every port forward. These changes use the firewall API with the
   privileges of the logged-in user.
+* **Firewall rules for this device** (device panel) – the rules on the
+  device's interface whose source covers it (any, its network, its address
+  or an alias holding its address or MAC address), and the rules elsewhere
+  that name it as destination, in evaluation order, with the open
+  connections and recent blocks of each. A switch enables or disables a
+  rule (after a confirmation; applied at once); the name opens the rule in
+  Firewall > Rules. Rules whose aliases cannot be resolved here (GeoIP,
+  URL tables, host names) are marked *may apply*.
 * **Icon** – the kind of a device, and so its icon, can be chosen from a
   grid in the rename form.
 * **Open ports** (device panel) – a Fing-like port scan with nmap running
@@ -65,6 +73,7 @@ Only core OPNsense APIs, read from the browser:
 | Open ports | `netmap/scan/{start,status}` (this plugin, nmap) |
 | Names, kinds, notes | `netmap/devices/{list,save}` (this plugin) |
 | Bans, Internet block | `firewall/alias/{search,add,set}_item`, `firewall/alias/reconfigure`, `firewall/filter/{search,add}_rule`, `firewall/filter/apply` |
+| Rules of a device | `firewall/filter/search_rule`, `firewall/filter/toggle_rule`, `firewall/filter/apply`, `firewall/alias/search_item` |
 | Port forwards | `firewall/d_nat/{search,add,del}_rule`, `firewall/d_nat/apply` |
 | DHCP reservations | `kea/dhcpv4/{search,add,set,del}_reservation`, `kea/dhcpv4/search_subnet`, `kea/service/reconfigure` |
 

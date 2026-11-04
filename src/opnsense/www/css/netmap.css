@@ -219,3 +219,18 @@
 .nm-modal-points { padding-left: 20px; margin: 0 0 14px; }
 .nm-modal-points li { margin-bottom: 6px; line-height: 1.45; }
 .nm-modal-note { padding: 10px 12px; margin-bottom: 10px; font-size: 13px; }
+
+/* firewall rules of a device */
+.nm-rules .nm-l1 { align-items: center; }
+.nm-rules .label { font-size: 9.5px; text-transform: uppercase; min-width: 42px; display: inline-block; text-align: center; }
+.nm-rules a.nm-r-name { color: inherit; }
+.nm-rules a.nm-r-name .fa { font-size: 10px; color: var(--nm-muted); }
+.nm-rules li.nm-rule-off .nm-r-name, .nm-rules li.nm-rule-off .nm-l2 { opacity: 0.5; text-decoration: line-through; }
+.nm-switch { position: relative; display: inline-block; width: 30px; height: 16px; margin: 0; flex: none; cursor: pointer; }
+.nm-switch input { position: absolute !important; opacity: 0 !important; width: 1px !important; height: 1px !important; margin: 0 !important; }
+.nm-switch span { position: absolute; inset: 0; border-radius: 8px; background: rgba(127, 127, 127, 0.45); transition: background 0.15s; }
+.nm-switch span::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff;
+    transition: transform 0.15s; }
+.nm-switch input:checked + span { background: #2e9e6b; }
+.nm-switch input:checked + span::after { transform: translateX(14px); }
+.nm-switch input:disabled + span { opacity: 0.5; }
