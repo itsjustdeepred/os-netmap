@@ -12,6 +12,7 @@
             <pattern>api/diagnostics/firewall/log*</pattern>
             <pattern>api/diagnostics/networkinsight/*</pattern>
             <pattern>api/unbound/diagnostics/dumpcache*</pattern>
+            <pattern>api/diagnostics/dns/reverse_lookup*</pattern>
             <pattern>api/netmap/scan/status*</pattern>
             <pattern>api/netmap/devices/list*</pattern>
             <pattern>api/kea/dhcpv4/search_reservation*</pattern>

@@ -253,3 +253,4 @@
     margin-left: 6px; vertical-align: middle; }
 .nm-hbar { height: 3px; background: rgba(127,127,127,0.15); border-radius: 2px; margin: 3px 0 0 22px; }
 .nm-hbar i { display: block; height: 100%; background: #3b82c4; border-radius: 2px; }
+.nm-resolve-label { font-size: 12px; margin-left: 10px; font-weight: normal; }

@@ -907,8 +907,35 @@
             var h = model.byIp[ip];
             if (h) { return h.name || h.ip; }
             if (model.ownIps[ip]) { return 'this firewall'; }
-            return model.dns[ip] || '';
+            if (model.dns[ip]) { return model.dns[ip]; }
+            if (resolveNames && rdns[ip] === undefined) { wantNames[ip] = 1; }
+            return rdns[ip] || '';
         }
+
+        // reverse DNS for addresses the resolver cache does not name (same lookup as the firewall live log)
+        var resolveNames = false, rdns = {}, wantNames = {}, rdnsBusy = false;
+        try { resolveNames = window.localStorage.getItem('netmap.resolve') === '1'; } catch (e) { /* ignore */ }
+
+        function lookupNames() {
+            var ips = Object.keys(wantNames).filter(function (ip) { return rdns[ip] === undefined; }).slice(0, 40);
+            wantNames = {};
+            if (!resolveNames || rdnsBusy || !ips.length) { return; }
+            rdnsBusy = true;
+            $.each(ips, function (_, ip) { rdns[ip] = ''; });  // asked once, even when there is no answer
+            $.ajax({url: API + 'diagnostics/dns/reverse_lookup', data: {address: ips}, traditional: false, dataType: 'json',
+                cache: false, global: false}).done(function (d) {
+                $.each(d || {}, function (ip, name) { if (name && name !== ip) { rdns[ip] = String(name).replace(/\.$/, ''); } });
+            }).always(function () {
+                rdnsBusy = false;
+                if (selected) { renderDrawer(); }
+            });
+        }
+
+        $drawer.on('change', '.nm-resolve', function () {
+            resolveNames = this.checked;
+            try { window.localStorage.setItem('netmap.resolve', resolveNames ? '1' : '0'); } catch (e) { /* ignore */ }
+            renderDrawer();
+        });
 
         function chart() {
             var hist = drawerData.history, w = 320, hgt = 70;
@@ -987,7 +1014,10 @@
                 '<h5>Open ports</h5><div class="nm-scan">' + scanHtml(h) + '</div>' +
                 '<h5>History <span class="small text-muted">from Insight (NetFlow)</span> <select class="form-control input-sm nm-hist-span">' +
                 '<option value="1"' + (histSpan === 1 ? ' selected' : '') + '>last 24 hours</option><option value="7"' + (histSpan === 7 ? ' selected' : '') +
-                '>last 7 days</option><option value="30"' + (histSpan === 30 ? ' selected' : '') + '>last 30 days</option></select></h5>' +
+                '>last 7 days</option><option value="30"' + (histSpan === 30 ? ' selected' : '') + '>last 30 days</option></select>' +
+                '<label class="nm-check nm-resolve-label" title="Look up the names of addresses the DNS cache does not know (reverse DNS), ' +
+                'also for the connections and blocked packets"><input type="checkbox" class="nm-resolve"' + (resolveNames ? ' checked' : '') +
+                '> resolve hostnames</label></h5>' +
                 '<div class="nm-hist">' + historyHtml() + '</div>' +
                 '<h5>Connections <span class="badge">' + esc(conns.length) + '</span></h5>' + connHtml +
                 '<h5>Firewall rules for this device <a class="small" href="/ui/firewall/filter/' + (h.net ? '#interface=' +
@@ -998,6 +1028,7 @@
                 '<p class="small"><a href="' + esc(logLink('__addr__', h.ip)) + '" target="_blank">' + icon('external-link') +
                 ' Live firewall log of ' + esc(h.ip) + '</a> &nbsp; ' +
                 '<a href="/ui/diagnostics/networkinsight" target="_blank">' + icon('external-link') + ' Insight history</a></p></div>');
+            lookupNames();
         }
 
         // ---- name, kind and DHCP reservation -------------------------------
