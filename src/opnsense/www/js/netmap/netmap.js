@@ -1731,6 +1731,18 @@
         // ---- polling ----------------------------------------------------
         function status(text) { $root.find('.nm-status').html(text); }
 
+        // "live · updated 4 s ago", refreshed every second
+        var updatedAt = 0;
+        function markUpdated() { updatedAt = Date.now(); showUpdated(); }
+        function showUpdated() {
+            if (!updatedAt) { return; }
+            var sec = Math.max(0, Math.round((Date.now() - updatedAt) / 1000));
+            var text = sec < 2 ? 'just now' : (sec < 60 ? sec + ' s ago' : Math.floor(sec / 60) + ' min ago');
+            status('<span title="Last read ' + esc(new Date(updatedAt).toLocaleTimeString()) + '">' + icon('circle') + ' live &middot; updated ' +
+                esc(text) + '</span>');
+        }
+        setInterval(showUpdated, 1000);
+
         function loadHosts() {
             return $.when(
                 get('interfaces/overview/interfaces_info'),
@@ -1776,7 +1788,7 @@
                 if (document.hidden) { timers[name] = setTimeout(run, 2000); return; }
                 $.when(fn()).always(function () {
                     draw();
-                    status(icon('circle', 'live') + ' live, ' + new Date().toLocaleTimeString());
+                    markUpdated();
                     timers[name] = setTimeout(run, seconds * 1000);
                 });
             }
@@ -1789,7 +1801,7 @@
             return $.when(loadStates(), loadLog(), loadDns());
         }).always(function () {
             draw();
-            status(icon('circle', 'live') + ' live, ' + new Date().toLocaleTimeString());
+            markUpdated();
             every('states', EVERY.states, loadStates);
             every('log', EVERY.log, loadLog);
             every('hosts', EVERY.hosts, loadHosts);
