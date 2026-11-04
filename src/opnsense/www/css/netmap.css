@@ -264,3 +264,10 @@
 
 /* room for the arrow of the select boxes */
 .netmap select.form-control, .nm-drawer select.form-control { padding-right: 26px; background-position: right 8px center; }
+
+/* loading and empty states, in the middle of the page */
+.nm-loading, .nm-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh;
+    color: var(--nm-muted); text-align: center; }
+.nm-loading .fa { font-size: 42px; color: #3b82c4; }
+.nm-empty .fa { font-size: 34px; }
+.nm-loading p, .nm-empty p { margin: 14px 0 10px; font-size: 15px; }

@@ -723,7 +723,12 @@
                 $.map(rest, function (it) { return card(it.h, it.st); }).join('') + '</div></section>' : ''));
         }
 
+        var loaded = false;
+
         function draw() {
+            if (!loaded) { return; }
+            // the New filter switches itself off once every device is approved
+            if (onlyNew && !newDevices().length) { onlyNew = false; }
             var items = [], groups = {};
             $.each(model.hosts, function (_, h) {
                 var st = model.hostStats(h);
@@ -746,7 +751,10 @@
             var exact = !!(model.instanton && model.instanton.clients);
             $root.find('.nm-toolbar .nm-link').toggle(exact);
             if (!exact && filters.link) { filters.link = ''; }
-            if (filters.view === 'physical' && model.instanton && model.instanton.topology) {
+            if (!items.length && Object.keys(model.hosts).length) {
+                $stage.html('<div class="nm-empty">' + icon('filter') + '<p>No device matches the current filters.</p>' +
+                    '<button type="button" class="btn btn-default btn-sm" data-reset-filters>Show every device</button></div>');
+            } else if (filters.view === 'physical' && model.instanton && model.instanton.topology) {
                 drawPhysical(items);
             } else {
                 drawNetworks(items);
@@ -1853,11 +1861,23 @@
             timers[name] = setTimeout(run, seconds * 1000);
         }
 
+        $root.on('click', '[data-reset-filters]', function () {
+            $.extend(filters, {q: '', nets: {}, link: '', type: '', group: '', active: false, offline: false, ports: false});
+            onlyNew = false;
+            $root.find('.nm-q').val('');
+            $root.find('.nm-withports').prop('checked', false);
+            save();
+            syncToolbar();
+            draw();
+        });
+
         syncToolbar();
+        $stage.html('<div class="nm-loading">' + icon('spinner fa-pulse') + '<p>Reading the firewall…</p></div>');
         status(icon('spinner fa-pulse') + ' reading the firewall...');
         loadHosts().then(function () {
             return $.when(loadStates(), loadLog(), loadDns());
         }).always(function () {
+            loaded = true;
             draw();
             markUpdated();
             every('states', EVERY.states, loadStates);
@@ -1866,6 +1886,10 @@
             every('dns', EVERY.dns, loadDns);
         }).fail(function (xhr) {
             status('<span class="text-danger">' + icon('exclamation-triangle') + ' cannot read the firewall data (HTTP ' + esc(xhr && xhr.status) + ')</span>');
+            if (!Object.keys(model.hosts).length) {
+                $stage.html('<div class="nm-empty">' + icon('exclamation-triangle') + '<p>The firewall data could not be read (HTTP ' +
+                    esc(xhr && xhr.status) + '). Reload the page; if it persists, check the privileges of your account.</p></div>');
+            }
         });
     }
 
