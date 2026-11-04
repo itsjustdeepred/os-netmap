@@ -1,137 +1,131 @@
-# os-netmap
+<p align="center"><img src="docs/icon.svg" width="96" alt=""></p>
 
-Network Map for OPNsense: every device on the networks of the firewall, how
-it is connected, how much it talks right now and what the firewall does
-with its traffic. Read-only.
+<h1 align="center">os-netmap</h1>
 
-## What it shows
+<p align="center">A live network map for OPNsense: every device, how it is connected, what it talks to and what the firewall does about it.</p>
 
-The page is under **Network Map > Dashboard** in the main menu.
+<p align="center"><img src="docs/screenshots/dashboard.jpg" alt="Network Map dashboard" width="900"></p>
 
-* **Networks view** – the firewall on top and one panel per network (VLAN)
-  with a card for every device: kind (camera, phone, printer, smart home,
-  ...), name, address, cable or Wi-Fi, live traffic and packets blocked by
-  the firewall. Filters: networks, cable / Wi-Fi, kind, talking now,
-  offline devices, search by name, IP, MAC or maker.
-* **Physical view** – with the
-  [Instant On plugin](https://github.com/itsjustdeepred/os-instanton): the
-  tree from the firewall to switches and access points, with port, speed,
-  PoE power and Wi-Fi signal of every link.
-* **Device panel** (click a card) – live traffic chart, every open
-  connection with the remote host named from the DNS cache, port, rate,
-  bytes and the rule that allowed it, and the packets the firewall blocked
-  with the rule that blocked them.
+## Overview
 
-* **Name, kind and DHCP** (device panel) – rename a device, choose its kind
-  and add notes (stored in the firewall configuration, also for devices
-  outside DHCP). See whether Kea DHCP has a reservation for it; edit its
-  address, hostname and description, delete it, or reserve the current
-  address, then apply the change to Kea. Reservation changes use the Kea
-  API with the privileges of the logged-in user. Device names come from,
-  in order: the name given in the map, the Kea reservation, Instant On,
-  the DHCP lease and the ARP table.
-* **Firewall** (device panel) – *Ban* blocks every packet the device sends
-  through the firewall (Internet, other networks, services of the firewall);
-  *Block Internet* keeps it on the local networks. Both use MAC address
-  aliases (`netmap_banned`, `netmap_nowan`), so the block follows the device
-  when its address changes; the two block rules ("Network Map: ...") are
-  created on every internal network the first time they are needed and
-  applied. *Port forwards* to the device are
-  listed and can be added (WAN address, protocol, port or range, device
-  port) or deleted. The **Restrictions** button lists blocked devices and
-  every port forward. These changes use the firewall API with the
-  privileges of the logged-in user.
-* **Firewall rules for this device** (device panel) – the rules on the
-  device's interface whose source covers it (any, its network, its address
-  or an alias holding its address or MAC address), and the rules elsewhere
-  that name it as destination, in evaluation order, with the open
-  connections and recent blocks of each. A switch enables or disables a
-  rule (after a confirmation; applied at once); the name opens the rule in
-  Firewall > Rules. Rules whose aliases cannot be resolved here (GeoIP,
-  URL tables, host names) are marked *may apply*.
-* **New devices** – after a one-time approval of the devices already on
-  the network, every device that joins for the first time is marked *new*
-  until it is approved or banned; the *New* button shows only those.
-* **Groups** – a device can belong to a group (Kids, Untrusted IoT, ...);
-  the map filters by group and blocks or allows Internet access for all
-  the devices of a group at once.
-* **Internet on a schedule** – block Internet access during a schedule of
-  Firewall > Settings > Schedules (one alias and one scheduled rule per
-  schedule, created when first used).
-* **Wake-on-LAN** – a *Wake* button in the device panel (needs os-wol).
-* **History** – traffic of the device over the last 24 hours, 7 or 30
-  days from Insight (NetFlow), with the remote hosts it talked to most.
-* **Settings** (Network Map > Settings) – refresh interval, networks hidden
-  by default, and switches for new-device flags, firewall actions and port
-  scans (turn them off for a read-only map).
-* **DNS from AdGuard Home** (device panel, when set up in Settings) – the
-  domains the device asked for in the latest query log entries, the ones
-  AdGuard Home blocked with the rule, and *Block DNS* / *Allow DNS* through
-  the AdGuard Home disallowed clients. Every domain has a *Block* or *Allow*
-  button that writes a custom filtering rule (||domain^ or @@||domain^),
-  for that device only or for the whole network; rules made here can be
-  removed again from the map. The firewall talks to AdGuard Home,
-  so its password never reaches the browser. In Settings give the host and
-  port of the AdGuard Home web interface (127.0.0.1 and 3000 when it runs on
-  the firewall).
-* **Icon** – the kind of a device, and so its icon, can be chosen from a
-  grid in the rename form.
-* **Open ports** (device panel) – a Fing-like port scan with nmap running
-  on the firewall: *quick* (the 200 most common TCP ports with service
-  names, about a minute) or *full* (every TCP port, service versions and an
-  operating system guess). Web interfaces get an *open* link; ports that
-  were not open in the previous scan are marked *new*. Results belong to
-  the device (MAC address), so they follow it when its address changes;
-  the last five scans are kept with what changed between them, and map
-  cards show the number of open ports. Only devices on the
-  networks attached to the firewall can be scanned, never the uplink
-  network, VPNs or the firewall itself; at most two scans run at a time.
-  Starting scans needs the privilege *Reporting: Network Map: scan devices*.
+os-netmap adds **Network Map** to the OPNsense menu. Devices are discovered
+from data the firewall already has (host discovery, DHCP leases, ARP) and
+shown per network, with a kind and icon guessed from their name and
+manufacturer. Selecting a device opens a panel with its live traffic, DNS
+activity, firewall rules and the actions that apply to it.
 
-## Where the data comes from
+It works with OPNsense alone. Each optional companion below, when present,
+adds more detail.
 
-Only core OPNsense APIs, read from the browser:
+## Features
 
-| Data | API |
+| Area | What you get |
 |---|---|
-| Networks | `interfaces/overview/interfaces_info` |
-| Devices | `hostdiscovery/service/search`, `kea/leases4/search`, `diagnostics/interface/get_arp` |
-| Live traffic | `diagnostics/firewall/query_states` (bytes per direction; rates from the change between polls) |
-| Blocked packets | `diagnostics/firewall/log` |
-| Remote names | `unbound/diagnostics/dumpcache` |
-| Physical links, Wi-Fi | `instanton/status/{clients,topology}` (optional) |
-| Open ports | `netmap/scan/{start,status}` (this plugin, nmap) |
-| Names, kinds, notes | `netmap/devices/{list,save}` (this plugin) |
-| Bans, Internet block | `firewall/alias/{search,add,set}_item`, `firewall/alias/reconfigure`, `firewall/filter/{search,add}_rule`, `firewall/filter/apply` |
-| Rules of a device | `firewall/filter/search_rule`, `firewall/filter/toggle_rule`, `firewall/filter/apply`, `firewall/alias/search_item` |
-| AdGuard Home | `netmap/adguard/{test,queries,block}` (this plugin, AdGuard Home `/control/querylog`, `/control/access/*`) |
-| Settings | `netmap/settings/{get,set,options}` (this plugin) |
-| Wake-on-LAN | `wol/wol/set` (os-wol) |
-| History | `diagnostics/networkinsight/top/FlowSourceAddrDetails` |
-| Port forwards | `firewall/d_nat/{search,add,del}_rule`, `firewall/d_nat/apply` |
-| DHCP reservations | `kea/dhcpv4/{search,add,set,del}_reservation`, `kea/dhcpv4/search_subnet`, `kea/service/reconfigure` |
+| **Map** | Devices grouped by network (VLAN), live traffic, blocked packets, new-device flag, filters by network, kind, group and activity, search by name, IP, MAC or manufacturer |
+| **Device panel** | Live traffic chart, open connections with remote hosts named from the DNS cache, blocked packets with the rule that blocked them, 24 h / 7 d / 30 d history |
+| **Identity** | Rename, choose the kind and icon, notes, groups, approval of new devices |
+| **Firewall** | Ban, block Internet (always or on a schedule), port forwards, the rules that apply to the device with an on/off switch and a link to the rule |
+| **DHCP** | Kea reservation of the device: create, edit, delete |
+| **DNS** | Domains queried, blocked domains, block or allow a domain for one device or the whole network, block DNS for a device |
+| **Open ports** | Quick or full scan, services and versions, changes between scans, kept per device |
+| **Wake-on-LAN** | One-click wake |
 
-Limits: the firewall only sees traffic that crosses it (to the Internet
-and between networks). Two devices on the same network talk through the
-switch and their traffic is not counted. Blocked packets appear only for
-rules with logging enabled and for the default block rules. Without the
-Instant On plugin the map does not show cable or Wi-Fi: the firewall cannot
-see how a device reaches the switch.
+All changes go through the standard OPNsense API with the privileges of the
+logged-in user, and every destructive action asks for confirmation.
 
-The ACL *Reporting: Network Map* grants the page and read access to the
-APIs above.
+## Optional companions
+
+| Companion | Adds |
+|---|---|
+| **Kea DHCP** (core) | Reservations: see, create, edit and delete the fixed address of a device |
+| **nmap** (`pkg install nmap`) | Port scans of devices on the networks attached to the firewall |
+| **AdGuard Home** (on the firewall or another host) | DNS queries per device and per-domain block/allow rules |
+| **Insight** (Reporting > NetFlow) | Traffic history per device and the remote hosts it talked to most |
+| **os-wol** | Wake-on-LAN button |
+| **[os-instanton](https://github.com/itsjustdeepred/os-instanton)** | For HPE Networking Instant On networks: physical view (firewall → switches → access points → devices), cable or Wi-Fi, switch port, speed, PoE and Wi-Fi signal per device, more reliable device kinds |
+
+Without os-instanton the map cannot tell how a device reaches the switch;
+everything else works the same.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Device panel](docs/screenshots/device.jpg) | ![Physical view](docs/screenshots/physical.jpg) |
+| ![Firewall rules of a device](docs/screenshots/firewall.jpg) | ![Settings](docs/screenshots/settings.jpg) |
+
+## Privacy
+
+* No telemetry, analytics or tracking of any kind.
+* The browser only talks to the firewall. The firewall only talks to the
+  services configured in the plugin settings (for example AdGuard Home).
+* Port scans run on the firewall, only towards private addresses of the
+  networks attached to it, never towards the uplink, VPNs or the firewall
+  itself.
+* Names, kinds and notes are stored in the firewall configuration
+  (`config.xml`); scan results in `/var/db/netmap`.
 
 ## Installation
 
-Copy this repository to the firewall and run as root:
+### From the package repository
 
 ```sh
-sh install.sh
+fetch -o /usr/local/etc/pkg/repos/netmap.conf \
+    https://raw.githubusercontent.com/itsjustdeepred/os-netmap/main/packaging/netmap.conf
+pkg update -r netmap
+pkg install os-netmap
 ```
 
-`install.sh` also installs `nmap` from the OPNsense package repository
-when it is missing. Then open **Network Map > Dashboard**. `uninstall.sh` removes the files.
+The plugin then also appears in **System > Firmware > Plugins** and is
+updated with the firewall. Packages are built for FreeBSD 14 and 15
+(OPNsense community and business releases).
+
+### From source
+
+```sh
+git clone https://github.com/itsjustdeepred/os-netmap.git
+cd os-netmap && sh install.sh      # as root; sh uninstall.sh removes it
+```
+
+Then open **Network Map > Dashboard** and, if needed, **Network Map >
+Settings**.
+
+## Permissions
+
+| ACL | Grants |
+|---|---|
+| Reporting: Network Map | The map and read access to the data it shows |
+| Reporting: Network Map: scan devices | Starting port scans |
+
+Firewall, DHCP and DNS changes additionally need the privileges of the
+corresponding OPNsense pages.
+
+## Limits
+
+The firewall sees only traffic that crosses it: traffic between two devices
+on the same network goes through the switch and is not counted. Blocked
+packets appear for rules with logging enabled and for the default block
+rules.
+
+## Tested with
+
+* OPNsense 26.10 (FreeBSD 15.1)
+* Kea DHCP, Unbound DNS, AdGuard Home, Insight, nmap
+* os-instanton 1.0 with an Instant On 1960 switch and AP22 / AP25 access points
+
+Other versions and setups should work but have not been tested yet.
+Feedback, suggestions and pull requests are welcome.
+
+## Development
+
+```sh
+python3 -m unittest discover -s tests
+node tests/test_netmap.js
+```
+
+Packages are built by `packaging/build.sh` on FreeBSD and published by the
+GitHub workflow on every `v*` tag.
 
 ## License
 
-BSD 2-Clause, see LICENSE.
+BSD 2-Clause, the license used by OPNsense. See [LICENSE](LICENSE).

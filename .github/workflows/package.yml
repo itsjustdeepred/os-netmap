@@ -1,0 +1,61 @@
+name: package
+
+# Builds the plugin package for FreeBSD 14 and 15 (OPNsense community and
+# business releases) and publishes a pkg(8) repository per major version as
+# the assets of the releases "repo-freebsd14" and "repo-freebsd15".
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        freebsd: ['14.3', '15.0']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build in FreeBSD ${{ matrix.freebsd }}
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: ${{ matrix.freebsd }}
+          usesh: true
+          copyback: true
+          run: |
+            major=$(echo "${{ matrix.freebsd }}" | cut -d. -f1)
+            sh packaging/build.sh "${major}" "dist/freebsd${major}"
+
+      - name: Publish the repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          major=$(echo "${{ matrix.freebsd }}" | cut -d. -f1)
+          tag="repo-freebsd${major}"
+          gh release view "${tag}" >/dev/null 2>&1 || \
+            gh release create "${tag}" --title "Package repository (FreeBSD ${major})" \
+              --notes "pkg(8) repository used by the repository configuration in the README. Not meant for manual download." \
+              --latest=false
+          # replace the whole repository so no stale package or catalogue is left behind
+          for asset in $(gh release view "${tag}" --json assets -q '.assets[].name'); do
+            gh release delete-asset "${tag}" "${asset}" -y
+          done
+          gh release upload "${tag}" dist/freebsd${major}/* --clobber
+
+      - name: Attach the package to the version release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          major=$(echo "${{ matrix.freebsd }}" | cut -d. -f1)
+          for p in dist/freebsd${major}/*.pkg; do
+            case "$(basename "${p}")" in meta*|packagesite*|data*|filesite*) continue ;; esac
+            cp "${p}" "$(basename "${p}" .pkg)-freebsd${major}.pkg"
+          done
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || \
+            gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes || true
+          gh release upload "${GITHUB_REF_NAME}" ./*-freebsd${major}.pkg --clobber

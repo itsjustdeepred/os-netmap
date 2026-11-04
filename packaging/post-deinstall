@@ -1,0 +1,5 @@
+rm -f /tmp/opnsense_menu_cache.xml /tmp/opnsense_acl_cache.json /var/lib/php/tmp/opnsense_menu_cache.xml /var/lib/php/tmp/opnsense_acl_cache.json
+if [ -x /usr/local/opnsense/scripts/firmware/register.php ]; then
+	/usr/local/opnsense/scripts/firmware/register.php remove os-netmap >/dev/null 2>&1 || true
+fi
+service configd restart >/dev/null 2>&1 || true

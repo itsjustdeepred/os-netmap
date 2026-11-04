@@ -61,7 +61,7 @@
         <label>Port</label>
         <type>text</type>
         <hint>3000</hint>
-        <help>Port of the AdGuard Home web interface: the one in its address bar, for example 3000 in http://10.0.1.1:3000. 3000 is the AdGuard Home default; it is not the DNS port 53.</help>
+        <help>Port of the AdGuard Home web interface: the one in its address bar, for example 3000 in http://192.168.1.1:3000. 3000 is the AdGuard Home default; it is not the DNS port 53.</help>
     </field>
     <field>
         <id>netmap.adguard.https</id>

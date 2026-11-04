@@ -1,0 +1,8 @@
+mkdir -p /var/db/netmap/scans
+chmod 0750 /var/db/netmap /var/db/netmap/scans
+rm -f /tmp/opnsense_menu_cache.xml /tmp/opnsense_acl_cache.json /var/lib/php/tmp/opnsense_menu_cache.xml /var/lib/php/tmp/opnsense_acl_cache.json
+if [ -x /usr/local/opnsense/scripts/firmware/register.php ]; then
+	/usr/local/opnsense/scripts/firmware/register.php install os-netmap >/dev/null 2>&1 || true
+fi
+service configd restart >/dev/null 2>&1 || true
+command -v nmap >/dev/null 2>&1 || echo "os-netmap: install nmap (pkg install nmap) to enable port scans"

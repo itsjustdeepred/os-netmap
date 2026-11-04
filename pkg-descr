@@ -1,20 +1,23 @@
-A map of every device on the networks of the firewall, with how it is
-connected, how much it talks and what the firewall does with its traffic.
+A live map of every device on the networks of the firewall: how it is
+connected, how much it talks, what it resolves and what the firewall does
+with its traffic, with the controls to act on it.
 
 * Devices from host discovery, DHCP leases and the ARP table, grouped by
-  network (VLAN), with their kind guessed from name and manufacturer.
-* When the Instant On plugin is installed: the physical tree with
-  switches, access points, cable or Wi-Fi links, port, speed and signal.
-* Live traffic per device from the firewall state table, with remote
-  hosts named from the DNS resolver cache.
-* Packets blocked by the firewall for each device, with the rule.
-* Traffic volume history from Insight (NetFlow) when it is enabled.
+  network, with a kind and icon guessed from name and manufacturer.
+* Live traffic per device from the state table, remote hosts named from
+  the DNS resolver cache, and the packets the firewall blocked.
+* Firewall actions per device: ban, block Internet (always or on a
+  schedule), port forwards, the rules that apply to it.
+* Optional companions: Kea DHCP (reservations), nmap (port scans),
+  AdGuard Home (DNS queries, per-device blocking), Insight (traffic
+  history) and the os-instanton plugin (switch ports and Wi-Fi links).
 
-The plugin only reads.
+No telemetry: the plugin only talks to the firewall and to the services
+configured in its settings.
 
 Plugin Changelog
 ================
 
-0.1
+1.0
 
 * Initial release
