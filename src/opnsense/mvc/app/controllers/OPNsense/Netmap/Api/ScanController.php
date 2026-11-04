@@ -44,8 +44,10 @@ class ScanController extends ApiControllerBase
 
     private function run($action, $params)
     {
-        $this->sessionClose();
-        $response = trim((new Backend())->configdpRun('netmap scan.' . $action, $params));
+        if (method_exists($this, 'sessionClose')) {
+            $this->sessionClose();
+        }
+        $response = trim((new Backend())->configdpRun('netmap scan ' . $action, $params));
         return json_decode($response, true) ?? ['status' => 'error', 'message' => $response];
     }
 
