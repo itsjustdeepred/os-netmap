@@ -295,3 +295,7 @@
 .nm-filter-menu select { width: 100% !important; margin-bottom: 10px; }
 .nm-filter-menu .nm-check { display: block; margin: 6px 0; }
 .nm-filter-menu [data-reset-filters] { margin-top: 8px; }
+
+/* space between the traffic arrows and the numbers around them */
+.netmap .fa-arrow-down, .netmap .fa-arrow-up, .nm-drawer .fa-arrow-down, .nm-drawer .fa-arrow-up { margin: 0 3px 0 6px; font-size: 0.85em; }
+.netmap .nm-rate .fa:first-child, .nm-legend .fa { margin-left: 0; }
