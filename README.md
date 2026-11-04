@@ -6,6 +6,8 @@ with its traffic. Read-only.
 
 ## What it shows
 
+The page is under **Network Map > Map** in the main menu.
+
 * **Networks view** – the firewall on top and one panel per network (VLAN)
   with a card for every device: kind (camera, phone, printer, smart home,
   ...), name, address, cable or Wi-Fi, live traffic and packets blocked by
@@ -47,6 +49,18 @@ with its traffic. Read-only.
   rule (after a confirmation; applied at once); the name opens the rule in
   Firewall > Rules. Rules whose aliases cannot be resolved here (GeoIP,
   URL tables, host names) are marked *may apply*.
+* **New devices** – after a one-time approval of the devices already on
+  the network, every device that joins for the first time is marked *new*
+  until it is approved or banned; the *New* button shows only those.
+* **Groups** – a device can belong to a group (Kids, Untrusted IoT, ...);
+  the map filters by group and blocks or allows Internet access for all
+  the devices of a group at once.
+* **Internet on a schedule** – block Internet access during a schedule of
+  Firewall > Settings > Schedules (one alias and one scheduled rule per
+  schedule, created when first used).
+* **Wake-on-LAN** – a *Wake* button in the device panel (needs os-wol).
+* **History** – traffic of the device over the last 24 hours, 7 or 30
+  days from Insight (NetFlow), with the remote hosts it talked to most.
 * **Icon** – the kind of a device, and so its icon, can be chosen from a
   grid in the rename form.
 * **Open ports** (device panel) – a Fing-like port scan with nmap running
@@ -74,6 +88,8 @@ Only core OPNsense APIs, read from the browser:
 | Names, kinds, notes | `netmap/devices/{list,save}` (this plugin) |
 | Bans, Internet block | `firewall/alias/{search,add,set}_item`, `firewall/alias/reconfigure`, `firewall/filter/{search,add}_rule`, `firewall/filter/apply` |
 | Rules of a device | `firewall/filter/search_rule`, `firewall/filter/toggle_rule`, `firewall/filter/apply`, `firewall/alias/search_item` |
+| Wake-on-LAN | `wol/wol/set` (os-wol) |
+| History | `diagnostics/networkinsight/top/FlowSourceAddrDetails` |
 | Port forwards | `firewall/d_nat/{search,add,del}_rule`, `firewall/d_nat/apply` |
 | DHCP reservations | `kea/dhcpv4/{search,add,set,del}_reservation`, `kea/dhcpv4/search_subnet`, `kea/service/reconfigure` |
 
@@ -96,7 +112,7 @@ sh install.sh
 ```
 
 `install.sh` also installs `nmap` from the OPNsense package repository
-when it is missing. Then open **Reporting > Network Map**. `uninstall.sh` removes the files.
+when it is missing. Then open **Network Map > Map**. `uninstall.sh` removes the files.
 
 ## License
 

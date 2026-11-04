@@ -1,6 +1,6 @@
 <model>
     <mount>//OPNsense/netmap</mount>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
     <description>Network map: names, kinds and notes of devices</description>
     <items>
         <devices>
@@ -15,6 +15,10 @@
                 <kind type="TextField">
                     <Mask>/^[a-z]{0,16}$/</Mask>
                 </kind>
+                <group type="TextField">
+                    <Mask>/^[^\n\r,]{0,32}$/</Mask>
+                    <ValidationMessage>Up to 32 characters, no commas.</ValidationMessage>
+                </group>
                 <approved type="BooleanField">
                     <Default>0</Default>
                     <Required>Y</Required>

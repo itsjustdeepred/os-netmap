@@ -49,6 +49,7 @@ class DevicesController extends ApiMutableModelControllerBase
                 'name' => (string)$d->name,
                 'kind' => (string)$d->kind,
                 'notes' => (string)$d->notes,
+                'group' => (string)$d->group,
                 'approved' => (string)$d->approved === '1',
             ];
         }
@@ -56,7 +57,7 @@ class DevicesController extends ApiMutableModelControllerBase
     }
 
     /**
-     * POST mac, name, kind, notes. Empty name, kind and notes remove the entry.
+     * POST mac, name, kind, notes, group. An entry without any of them (and not approved) is removed.
      */
     public function saveAction()
     {
@@ -68,7 +69,7 @@ class DevicesController extends ApiMutableModelControllerBase
             return ['result' => 'failed', 'message' => 'invalid MAC address'];
         }
         $values = [];
-        foreach (['name', 'kind', 'notes'] as $field) {
+        foreach (['name', 'kind', 'notes', 'group'] as $field) {
             $values[$field] = trim((string)$this->request->getPost($field));
         }
         $mdl = $this->getModel();

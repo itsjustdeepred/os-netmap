@@ -320,6 +320,7 @@
             h.custom = cu;
             h.res = res;
             h.approved = !!cu.approved;
+            h.group = cu.group || '';
             h.autoName = (res && (res.description || res.hostname)) ||
                 (ic && (ic.description || ic.hostname || ic.port_label || ic.cloud_name)) || (h.lease && h.lease.hostname) || h.arpName || '';
             h.name = cu.name || h.autoName;
@@ -467,6 +468,7 @@
             '    <button type="button" class="btn btn-default btn-sm" data-link="none" title="Connection not known">?</button>' +
             '  </div>' +
             '  <select class="form-control input-sm nm-type"><option value="">everything</option></select>' +
+            '  <select class="form-control input-sm nm-group"><option value="">all groups</option></select>' +
             '  <label class="nm-check"><input type="checkbox" class="nm-active"> talking now</label>' +
             '  <label class="nm-check"><input type="checkbox" class="nm-offline"> offline too</label>' +
             '  <select class="form-control input-sm nm-sort"><option value="traffic">by traffic</option><option value="name">by name</option>' +
@@ -479,6 +481,7 @@
             '</div>' +
             '<div class="nm-restrict" style="display:none"></div>' +
             '<div class="nm-adopt"></div>' +
+            '<div class="nm-group-bar"></div>' +
             '<div class="nm-chips"></div>' +
             '<div class="nm-stage"></div>' +
             '<div class="nm-drawer" aria-hidden="true"></div>');
@@ -525,6 +528,7 @@
             if (h.net && filters.nets[h.net.id]) { return false; }
             if (filters.link && (filters.link === 'none' ? h.link : h.link !== filters.link)) { return false; }
             if (filters.type && h.type !== filters.type) { return false; }
+            if (filters.group && h.group !== filters.group) { return false; }
             if (filters.active && !(st.traffic.up + st.traffic.down > 0)) { return false; }
             if (onlyNew && h.approved) { return false; }
             if (filters.q) {
@@ -590,6 +594,47 @@
             }).join('');
             $root.find('.nm-chips').html(html);
         }
+
+        function groupNames() {
+            var seen = {};
+            $.each(model.custom, function (_, c) { if (c.group) { seen[c.group] = 1; } });
+            return Object.keys(seen).sort(function (a, b) { return a.localeCompare(b); });
+        }
+
+        function fillGroups() {
+            var names = groupNames();
+            if (filters.group && names.indexOf(filters.group) < 0) { filters.group = ''; }
+            var html = '<option value="">all groups</option>' + $.map(names, function (g) {
+                return '<option value="' + esc(g) + '">' + esc(g) + '</option>';
+            }).join('');
+            var $s = $root.find('.nm-group');
+            if ($s.data('html') !== html) { $s.data('html', html).html(html).val(filters.group); }
+            $s.toggle(names.length > 0);
+            // actions on every device of the selected group
+            var $bar = $root.find('.nm-group-bar');
+            if (!filters.group) { $bar.empty(); return; }
+            var members = $.grep($.map(model.hosts, function (h) { return h; }), function (h) { return h.group === filters.group; });
+            var blocked = $.grep(members, function (h) { return isMember('nowan', h.mac); }).length;
+            $bar.html('<div class="alert alert-info nm-group-box">' + icon('object-group') + ' Group <b>' + esc(filters.group) + '</b>: ' +
+                esc(members.length) + ' devices, ' + esc(blocked) + ' without Internet. ' +
+                '<button type="button" class="btn btn-warning btn-xs" data-group-net="1">' + icon('ban') + ' Block Internet for all</button> ' +
+                '<button type="button" class="btn btn-success btn-xs" data-group-net="0">' + icon('unlock') + ' Allow Internet for all</button></div>');
+        }
+
+        $root.on('change', '.nm-group', function () { filters.group = $(this).val(); save(); draw(); });
+        $root.on('click', '[data-group-net]', function () {
+            var on = $(this).data('group-net') === 1, group = filters.group;
+            var macs = $.map(model.hosts, function (h) { return h.group === group ? h.mac : null; });
+            if (!macs.length) { return; }
+            confirmDialog(on ? 'Block Internet for a group' : 'Allow Internet for a group',
+                '<p>' + (on ? 'Block' : 'Allow') + ' Internet access for the <b>' + esc(macs.length) + '</b> devices of the group <b>' +
+                esc(group) + '</b>?</p><ul class="nm-modal-points"><li>' + (on ? 'They can still reach the local networks and the firewall.'
+                    : 'Their Internet access follows your other rules again.') + '</li><li>Devices added to the group later are not ' +
+                'included automatically.</li></ul>', on ? 'Block Internet' : 'Allow Internet', on)
+                .done(function () {
+                    setMembers('nowan', macs, on).always(function () { loadFirewall().always(draw); });
+                });
+        });
 
         function fillTypes() {
             var seen = {};
@@ -689,6 +734,7 @@
             $.each(FW, function (_, def) { var a = model.fw.aliases[def.alias]; nBlocked += a ? a.content.length : 0; });
             $root.find('.nm-restrict-count').text(nBlocked || '');
             adoptBanner();
+            fillGroups();
             // cable / Wi-Fi filters only make sense when switch and access point data tell it
             var exact = !!(model.instanton && model.instanton.clients);
             $root.find('.nm-toolbar .nm-link').toggle(exact);
@@ -707,7 +753,8 @@
         function openDrawer(mac) {
             selected = mac;
             editing = null;
-            drawerData = {rows: [], prev: {}, history: [], log: [], scan: null};
+            drawerData = {rows: [], prev: {}, history: [], log: [], scan: null, hist: null};
+            loadHistory();
             $drawer.html('<div class="nm-dtop"></div><div class="nm-dedit"></div><div class="nm-dlive"></div>');
             $drawer.addClass('nm-open').attr('aria-hidden', 'false');
             renderEdit();
@@ -938,6 +985,10 @@
                     return f[1] ? '<tr><th>' + esc(f[0]) + '</th><td>' + f[1] + '</td></tr>' : '';
                 }).join('') + '</tbody></table>' +
                 '<h5>Open ports</h5><div class="nm-scan">' + scanHtml(h) + '</div>' +
+                '<h5>History <span class="small text-muted">from Insight (NetFlow)</span> <select class="form-control input-sm nm-hist-span">' +
+                '<option value="1"' + (histSpan === 1 ? ' selected' : '') + '>last 24 hours</option><option value="7"' + (histSpan === 7 ? ' selected' : '') +
+                '>last 7 days</option><option value="30"' + (histSpan === 30 ? ' selected' : '') + '>last 30 days</option></select></h5>' +
+                '<div class="nm-hist">' + historyHtml() + '</div>' +
                 '<h5>Connections <span class="badge">' + esc(conns.length) + '</span></h5>' + connHtml +
                 '<h5>Firewall rules for this device <a class="small" href="/ui/firewall/filter/' + (h.net ? '#interface=' +
                     encodeURIComponent(h.net.id) : '') + '" target="_blank">' + icon('external-link') + ' all rules of ' + esc(h.net ? h.net.name : 'the firewall') +
@@ -994,12 +1045,18 @@
                 html += '<form class="nm-form" data-form="device">' +
                     field('Name in the map', 'name', cu.name || '', 'Leave empty to use ' + (h.autoName ? '"' + esc(h.autoName) + '"' : 'the address') + '.', ' maxlength="64"') +
                     '<div class="form-group"><label>Icon and kind</label><div class="nm-icons">' + iconPicker(cu.kind || '') + '</div></div>' +
+                    field('Group', 'group', cu.group || '', 'For example Kids, Untrusted IoT or Guests: the map can then filter and block a whole group.',
+                        ' maxlength="32" list="nm-groups"') + '<datalist id="nm-groups">' + $.map(groupNames(), function (g) {
+                            return '<option value="' + esc(g) + '">';
+                        }).join('') + '</datalist>' +
                     field('Notes', 'notes', cu.notes || '', '', ' maxlength="256"') +
                     '<button type="submit" class="btn btn-success btn-xs">Save</button> <button type="button" class="btn btn-default btn-xs" data-cancel>Cancel</button></form>';
             } else {
                 html += '<div class="nm-edit-row"><div><b>' + esc(h.name || h.ip) + '</b> <span class="text-muted small">' + esc(TYPES[h.type][0]) +
                     (h.typeSource ? ', from ' + esc(h.typeSource) : '') + '</span>' + (cu.notes ? '<div class="small">' + esc(cu.notes) + '</div>' : '') +
-                    '</div><button type="button" class="btn btn-default btn-xs" data-edit="device">' + icon('pencil') + ' Rename</button></div>';
+                    '</div><span>' + (h.net ? '<button type="button" class="btn btn-default btn-xs" data-wake title="Send a Wake-on-LAN packet ' +
+                    '(the device must support it and be connected by cable)">' + icon('power-off') + ' Wake</button> ' : '') +
+                    '<button type="button" class="btn btn-default btn-xs" data-edit="device">' + icon('pencil') + ' Rename</button></span></div>';
             }
             var subnet = h.ip ? model.keaSubnetOf(h.ip) : null;
             html += '<div class="nm-dhcp"><h5>DHCP (Kea)</h5>';
@@ -1047,6 +1104,14 @@
 
         $drawer.on('click', '[data-edit]', function () { editing = $(this).data('edit'); renderEdit(); });
         $drawer.on('click', '[data-cancel]', function () { editing = null; renderEdit(); });
+        $drawer.on('click', '[data-wake]', function () {
+            var h = selectedHost(), $b = $(this).prop('disabled', true);
+            call('wol/wol/set', {wake: {interface: h.net.id, mac: h.mac}}).done(function () {
+                editMessage('success', 'Wake-on-LAN packet sent to ' + esc(h.mac) + ' on ' + esc(h.net.name) + '.');
+            }).fail(function (err) {
+                editMessage('danger', err && err.status === 404 ? 'The Wake-on-LAN plugin (os-wol) is not installed.' : esc(why(err)));
+            }).always(function () { $b.prop('disabled', false); });
+        });
         $drawer.on('submit', '.nm-form', function (e) {
             e.preventDefault();
             var h = selectedHost(), v = {};
@@ -1055,7 +1120,7 @@
             var req;
             if ($(this).data('form') === 'forward') { addForward(h, v, $btn); return; }
             if ($(this).data('form') === 'device') {
-                req = search('netmap/devices/save', {mac: h.mac, name: v.name, kind: v.kind, notes: v.notes});
+                req = search('netmap/devices/save', {mac: h.mac, name: v.name, kind: v.kind, notes: v.notes, group: v.group});
             } else if (h.res) {
                 req = search('kea/dhcpv4/set_reservation/' + encodeURIComponent(h.res.uuid),
                     {reservation: {ip_address: v.ip_address, hostname: v.hostname, description: v.description}});
@@ -1125,15 +1190,18 @@
             return $.when(
                 search('firewall/alias/search_item', {current: 1, rowCount: -1, searchPhrase: ''}).then(null, none),
                 search('firewall/filter/search_rule', {current: 1, rowCount: -1, searchPhrase: ''}).then(null, none),
-                search('firewall/d_nat/search_rule', {current: 1, rowCount: -1, searchPhrase: ''}).then(null, none)
-            ).then(function (a, r, d) {
-                var fw = {aliases: {}, rules: {}, forwards: [], ruleList: []};
+                search('firewall/d_nat/search_rule', {current: 1, rowCount: -1, searchPhrase: ''}).then(null, none),
+                get('firewall/filter/get_rule').then(null, function () { return $.Deferred().resolve([{}]); })
+            ).then(function (a, r, d, tpl) {
+                var fw = {aliases: {}, rules: {}, byDesc: {}, forwards: [], ruleList: [], schedules: []};
+                $.each(((tpl[0] || {}).rule || {}).sched || {}, function (name) { if (name) { fw.schedules.push(name); } });
                 $.each((a[0] || {}).rows || [], function (_, x) {
                     var raw = splitContent(x.content);
                     fw.aliases[x.name] = {uuid: x.uuid, type: x.type, raw: raw, content: $.map(raw, normMac)};
                 });
                 $.each((r[0] || {}).rows || [], function (_, x) {
                     $.each(FW, function (key, def) { if (x.description === def.rule) { fw.rules[key] = x.uuid; } });
+                    if (x.description) { fw.byDesc[x.description] = x.uuid; }
                     // rules generated by OPNsense itself cannot be toggled and are left out
                     if (!x.legacy && !x.is_automatic) { fw.ruleList.push(x); }
                 });
@@ -1148,8 +1216,16 @@
             });
         }
 
+        // FW entries, plus one entry per schedule: "sched:<name>" blocks Internet during that schedule
+        function defOf(key) {
+            if (FW[key]) { return FW[key]; }
+            var name = key.slice(6);
+            return {alias: 'netmap_s_' + name.replace(/[^A-Za-z0-9_]/g, '_').slice(0, 22), sched: name,
+                rule: 'Network Map: block Internet during ' + name, label: 'without Internet during ' + name};
+        }
+
         function isMember(key, mac) {
-            var a = model.fw.aliases[FW[key].alias];
+            var a = model.fw.aliases[defOf(key).alias];
             return !!(a && a.content.indexOf(mac) >= 0);
         }
 
@@ -1171,9 +1247,10 @@
 
         // create the alias(es) and rule for ``key`` when they do not exist yet
         function ensureRule(key) {
-            if (model.fw.rules[key]) { return $.Deferred().resolve(false); }
+            var def = defOf(key);
+            if (model.fw.byDesc[def.rule]) { return $.Deferred().resolve(false); }
             var steps = $.Deferred().resolve();
-            if (key === 'nowan' && !model.fw.aliases[PRIVATE_ALIAS]) {
+            if (key !== 'banned' && !model.fw.aliases[PRIVATE_ALIAS]) {
                 steps = steps.then(function () {
                     return call('firewall/alias/add_item', {alias: {enabled: '1', name: PRIVATE_ALIAS, type: 'network',
                         content: '10.0.0.0/8\n172.16.0.0/12\n192.168.0.0/16\n100.64.0.0/10',
@@ -1185,8 +1262,8 @@
                 ? {enabled: '1', action: 'block', quick: '1', interface: interfaces, direction: 'in', ipprotocol: 'inet46', protocol: 'any',
                     source_net: FW.banned.alias, destination_net: 'any', sequence: '1', log: '1', description: FW.banned.rule}
                 : {enabled: '1', action: 'block', quick: '1', interface: interfaces, direction: 'in', ipprotocol: 'inet', protocol: 'any',
-                    source_net: FW.nowan.alias, destination_net: PRIVATE_ALIAS, destination_not: '1', sequence: '2', log: '1',
-                    description: FW.nowan.rule};
+                    source_net: def.alias, destination_net: PRIVATE_ALIAS, destination_not: '1', sequence: def.sched ? '3' : '2', log: '1',
+                    sched: def.sched || '', description: def.rule};
             return steps.then(function () { return call('firewall/filter/add_rule', {rule: rule}); })
                 .then(function () { return true; });
         }
@@ -1198,10 +1275,12 @@
             return call('firewall/filter/apply');
         }
 
-        function setMember(key, mac, on) {
-            var def = FW[key], a = model.fw.aliases[def.alias];
-            var list = $.grep(a ? a.content : [], function (m) { return m !== mac; });
-            if (on) { list.push(mac); }
+        function setMember(key, mac, on) { return setMembers(key, [mac], on); }
+
+        function setMembers(key, macs, on) {
+            var def = defOf(key), a = model.fw.aliases[def.alias];
+            var list = $.grep(a ? a.content : [], function (m) { return macs.indexOf(m) < 0; });
+            if (on) { list = list.concat(macs); }
             var content = list.join('\n');
             var created = false;
             var save = a ? call('firewall/alias/set_item/' + encodeURIComponent(a.uuid), {alias: {content: content}})
@@ -1227,6 +1306,24 @@
                     icon(on ? 'unlock' : 'ban') + ' ' + esc(on ? x[5] : x[4]) + '</button><div><b>' + esc(x[1]) + ':</b> ' +
                     (on ? '<span class="text-danger">' + esc(x[2]) + '</span>' : '<span class="text-success">' + esc(x[3]) + '</span>') + '</div></div>';
             });
+            var scheds = model.fw.schedules || [];
+            var active = $.grep(scheds, function (n) { return isMember('sched:' + n, h.mac); });
+            html += '<div class="nm-fw-sched"><b>Internet on a schedule</b> ';
+            $.each(active, function (_, n) {
+                html += '<div class="nm-edit-row nm-fw-row"><button type="button" class="btn btn-xs btn-success" data-fw="sched:' + esc(n) +
+                    '" data-on="0">' + icon('unlock') + ' Remove</button><div>No Internet during <b>' + esc(n) + '</b></div></div>';
+            });
+            var free = $.grep(scheds, function (n) { return active.indexOf(n) < 0; });
+            if (free.length) {
+                html += '<div class="nm-edit-row nm-fw-row"><button type="button" class="btn btn-xs btn-warning" data-sched-add>' + icon('clock-o') +
+                    ' Block during</button><select class="form-control input-sm nm-sched-pick">' + $.map(free, function (n) {
+                        return '<option value="' + esc(n) + '">' + esc(n) + '</option>';
+                    }).join('') + '</select></div>';
+            } else if (!scheds.length) {
+                html += '<span class="small text-muted">No schedules yet: create one (for example "Night", 22:00 to 07:00) in ' +
+                    '<a href="/firewall_schedule.php" target="_blank">Firewall &gt; Settings &gt; Schedules</a>.</span>';
+            }
+            html += '</div>';
             var fwd = forwardsOf(h);
             html += '<div class="nm-fw-fwd"><b>Port forwards</b>' + (fwd.length ? '<ul class="nm-list">' + $.map(fwd, function (f) {
                 return '<li><div class="nm-l1"><span class="nm-r-name">' + esc(String(f.proto).toUpperCase() + ' ' + f.port) + '</span>' +
@@ -1284,11 +1381,17 @@
 
         function fwDialog(key, on, h) {
             h = h || {};
-            var def = FW[key], title, ok, points;
+            var def = defOf(key), title, ok, points;
             var device = '<div class="nm-modal-device"><span class="nm-ico" style="--net:' + (h.net ? h.net.color : '#888') + '">' +
                 icon(TYPES[h.type] ? TYPES[h.type][1] : 'question') + '</span><div><b>' + esc(h.name || h.ip || h.mac || '') + '</b>' +
                 '<small>' + esc([h.ip, h.mac, h.net ? h.net.name : ''].filter(Boolean).join(' · ')) + '</small></div></div>';
-            if (key === 'banned') {
+            if (def.sched) {
+                title = on ? 'Block Internet on a schedule' : 'Remove the scheduled block';
+                ok = on ? 'Block during ' + def.sched : 'Remove';
+                points = on ? ['Connections to the Internet are blocked while the schedule "' + def.sched + '" is active.',
+                    'Outside the schedule, and towards the local networks, nothing changes.']
+                    : ['The schedule "' + def.sched + '" no longer limits its Internet access.'];
+            } else if (key === 'banned') {
                 title = on ? 'Ban this device' : 'Unban this device';
                 ok = on ? 'Ban' : 'Unban';
                 points = on ? ['All its traffic through the firewall is blocked: Internet, the other networks and the services of the ' +
@@ -1307,13 +1410,18 @@
             if (on && key === 'banned') {
                 body += '<div class="alert alert-warning nm-modal-note">' + icon('exclamation-triangle') + ' Do not ban the computer you are using.</div>';
             }
-            if (on && !model.fw.rules[key]) {
+            if (on && !model.fw.byDesc[defOf(key).rule]) {
                 body += '<div class="alert alert-info nm-modal-note">' + icon('info-circle') + ' <b>First use.</b> The firewall rule "' +
                     esc(def.rule) + '" is created on every internal network and the rules are applied. Afterwards this action only ' +
                     'updates the alias <code>' + esc(def.alias) + '</code>.</div>';
             }
             return confirmDialog(title, body, ok, on);
         }
+
+        $drawer.on('click', '[data-sched-add]', function () {
+            var name = $drawer.find('.nm-sched-pick').val();
+            if (name) { $(this).attr('data-fw', 'sched:' + name).attr('data-on', '1').removeAttr('data-sched-add').trigger('click'); }
+        });
 
         $drawer.on('click', '[data-fw]', function () {
             var h = selectedHost(), key = $(this).data('fw'), on = $(this).data('on') === 1, $b = $(this);
@@ -1322,7 +1430,7 @@
                 fwBusy = true;
                 $b.prop('disabled', true).html(icon('spinner fa-pulse') + ' Applying...');
                 setMember(key, h.mac, on).done(function () {
-                    fwDone((h.name || h.ip) + (on ? ' is now ' : ' is no longer ') + FW[key].label + '.');
+                    fwDone((h.name || h.ip) + (on ? ' is now ' : ' is no longer ') + defOf(key).label + '.');
                 }).fail(function (err) {
                     fwBusy = false;
                     renderEdit();
@@ -1453,6 +1561,57 @@
                         .fail(function (err) { $c.prop('disabled', false); fwMessage('danger', esc(why(err))); });
                 });
         });
+
+        // ---- traffic history (Insight / NetFlow) ---------------------------
+        var histSpan = 1;
+
+        function loadHistory() {
+            var h = selectedHost();
+            if (!h || !h.ip) { return; }
+            var mac = selected, to = Math.floor(Date.now() / 1000), from = to - histSpan * 86400;
+            var url = 'diagnostics/networkinsight/top/FlowSourceAddrDetails/' + from + '/' + to + '/';
+            drawerData.hist = {loading: true};
+            function top(fields, filterField) {
+                return $.ajax({url: API + url + fields + '/octets/50/', data: {filter_field: filterField, filter_value: h.ip},
+                    dataType: 'json', cache: false, global: false});
+            }
+            $.when(top('dst_addr,service_port,protocol', 'src_addr'), top('src_addr,service_port,protocol', 'dst_addr')).done(function (out, inn) {
+                if (selected !== mac) { return; }
+                drawerData.hist = {sent: out[0] || [], received: inn[0] || []};
+                renderDrawer();
+            }).fail(function (xhr) {
+                if (selected === mac) { drawerData.hist = {error: xhr.status}; renderDrawer(); }
+            });
+        }
+
+        function historyHtml() {
+            var hs = drawerData.hist;
+            if (!hs || hs.loading) { return '<p class="small text-muted">' + icon('spinner fa-pulse') + ' reading Insight...</p>'; }
+            if (hs.error) { return '<p class="small text-muted">Insight is not available (HTTP ' + esc(hs.error) + '). Enable NetFlow in Reporting &gt; NetFlow.</p>'; }
+            var peers = {}, sent = 0, received = 0;
+            function add(rows, remoteKey, dir) {
+                $.each(rows, function (_, r) {
+                    var key = r[remoteKey] + '|' + r.service_port + '|' + r.protocol;
+                    var p = peers[key] || (peers[key] = {ip: r[remoteKey], port: r.service_port, proto: r.protocol, sent: 0, received: 0});
+                    p[dir] += +r.total || 0;
+                    if (dir === 'sent') { sent += +r.total || 0; } else { received += +r.total || 0; }
+                });
+            }
+            add(hs.sent || [], 'dst_addr', 'sent');
+            add(hs.received || [], 'src_addr', 'received');
+            var list = $.map(peers, function (p) { return p; }).sort(function (a, b) { return (b.sent + b.received) - (a.sent + a.received); });
+            if (!list.length) { return '<p class="small text-muted">No traffic recorded in this period.</p>'; }
+            return '<p class="small">' + icon('arrow-down') + ' <b>' + esc(bytes(received)) + '</b> received &nbsp; ' + icon('arrow-up') + ' <b>' +
+                esc(bytes(sent)) + '</b> sent <span class="text-muted">(top flows)</span></p><ul class="nm-list">' + $.map(list.slice(0, 15), function (p) {
+                    var name = remoteName(p.ip);
+                    return '<li><div class="nm-l1"><span class="nm-r-name">' + esc(name || p.ip) + '</span><span class="nm-r-port">' +
+                        esc(String(p.proto || '').toUpperCase() + ' ' + (p.port || '')) + '</span><span class="nm-r-rate small">' + icon('arrow-down') +
+                        esc(bytes(p.received)) + ' ' + icon('arrow-up') + esc(bytes(p.sent)) + '</span></div>' +
+                        (name ? '<div class="nm-l2"><span>' + esc(p.ip) + '</span></div>' : '') + '</li>';
+                }).join('') + '</ul>';
+        }
+
+        $drawer.on('change', '.nm-hist-span', function () { histSpan = +$(this).val() || 1; loadHistory(); renderDrawer(); });
 
         // ---- new devices ----------------------------------------------------
         var onlyNew = false;
