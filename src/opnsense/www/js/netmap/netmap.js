@@ -784,6 +784,8 @@
             $stage.html(html + '</div>');
         }
 
+        var loaded = false;
+
         function draw() {
             if (!loaded) { return; }
             // the New filter switches itself off once every device is approved
