@@ -178,3 +178,6 @@
 .nm-fw-row { padding: 4px 0; }
 .nm-fw-row + .nm-fw-row { margin-top: 8px; }
 .nm-modal { z-index: 2100; }
+.nm-fw-fwd { margin-top: 14px; }
+.nm-fw-fwd > div { margin-top: 8px; }
+.nm-fw-fwd > .nm-list { margin-top: 4px; }
