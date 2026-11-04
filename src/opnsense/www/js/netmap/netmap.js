@@ -1236,6 +1236,8 @@
                 '</div></div></div></div>');
             $m.find('.nm-modal-ok').on('click', function () { done.resolve(); $m.modal('hide'); });
             $m.on('hidden.bs.modal', function () { if (done.state() === 'pending') { done.reject(); } $m.remove(); });
+            // above the device panel, which itself sits above the OPNsense header
+            $m.on('shown.bs.modal', function () { $('.modal-backdrop').last().css('z-index', 2090); $m.find('.nm-modal-ok').trigger('focus'); });
             $('body').append($m);
             $m.modal('show');
             return done.promise();

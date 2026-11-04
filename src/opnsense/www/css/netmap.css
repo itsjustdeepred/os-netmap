@@ -177,3 +177,4 @@
 .nm-fw-row > div { min-width: 0; }
 .nm-fw-row { padding: 4px 0; }
 .nm-fw-row + .nm-fw-row { margin-top: 8px; }
+.nm-modal { z-index: 2100; }
