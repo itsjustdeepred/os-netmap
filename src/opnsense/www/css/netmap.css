@@ -302,14 +302,14 @@
 
 /* physical view: switch panels with access point blocks, no sideways scrolling */
 .nm-phys > header { font-size: 14px; }
-.nm-sub { border: 1px solid rgba(127, 127, 127, 0.25); border-left: 4px solid #3b82c4; border-radius: 10px; padding: 8px 10px 10px;
+.nm-box { border: 1px solid rgba(127, 127, 127, 0.25); border-left: 4px solid #3b82c4; border-radius: 10px; padding: 8px 10px 10px;
     margin: 10px 0 0; background: rgba(127, 127, 127, 0.04); }
-.nm-sub > header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; font-size: 13px; }
-.nm-sub > header > .fa { color: #3b82c4; }
-.nm-sub-mesh { border-left-color: #c9822b; border-left-style: dashed; margin-left: 18px; }
-.nm-sub-mesh > header > .fa { color: #c9822b; }
-.nm-sub-wired { border-left-color: #2e9e6b; }
-.nm-sub-wired > header > .fa { color: #2e9e6b; }
-.nm-sub-unmanaged { border-left-color: #999; border-left-style: dashed; }
-.nm-sub-link { font-size: 11px; color: var(--nm-muted); }
-.nm-sub .nm-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.nm-box > header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; font-size: 13px; }
+.nm-box > header > .fa { color: #3b82c4; }
+.nm-box-mesh { border-left-color: #c9822b; border-left-style: dashed; margin-left: 18px; }
+.nm-box-mesh > header > .fa { color: #c9822b; }
+.nm-box-wired { border-left-color: #2e9e6b; }
+.nm-box-wired > header > .fa { color: #2e9e6b; }
+.nm-box-unmanaged { border-left-color: #999; border-left-style: dashed; }
+.nm-box-link { font-size: 11px; color: var(--nm-muted); }
+.nm-box .nm-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }

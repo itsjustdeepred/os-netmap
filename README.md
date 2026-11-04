@@ -52,7 +52,7 @@ everything else works the same.
 | | |
 |---|---|
 | ![Device panel](docs/screenshots/device.jpg) | ![Physical view](docs/screenshots/physical.jpg) |
-| ![Firewall rules of a device](docs/screenshots/firewall.jpg) | ![Settings](docs/screenshots/settings.jpg) |
+| ![Firewall rules of a device](docs/screenshots/firewall.jpg) | ![Settings](docs/screenshots/settings.png) |
 
 ## Privacy
 

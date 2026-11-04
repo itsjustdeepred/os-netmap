@@ -741,9 +741,9 @@
                 var clients = leavesOf(ap);
                 var mesh = $.grep(kids[ap.id] || [], function (c) { return !c.client && c.type === 'ap'; });
                 var l = ap.link || {};
-                return '<div class="nm-sub nm-sub-ap' + (l.kind === 'mesh' ? ' nm-sub-mesh' : '') + (ap.online === false ? ' nm-off' : '') + '">' +
+                return '<div class="nm-box nm-box-ap' + (l.kind === 'mesh' ? ' nm-box-mesh' : '') + (ap.online === false ? ' nm-off' : '') + '">' +
                     '<header>' + icon('wifi') + ' <b>' + esc(ap.label) + '</b><span class="text-muted">' + esc(ap.sub || '') + '</span>' +
-                    '<span class="nm-sub-link">' + (l.kind === 'mesh' ? icon('random') + ' ' : '') + esc(linkText(l)) + '</span>' +
+                    '<span class="nm-box-link">' + (l.kind === 'mesh' ? icon('random') + ' ' : '') + esc(linkText(l)) + '</span>' +
                     '<span class="nm-net-stat">' + esc(clients.length) + ' ' + icon('mobile') + '</span></header>' +
                     grid(clients, 'No client on this access point.') +
                     $.map(mesh, function (m) { return apBlock(m, depth + 1); }).join('') + '</div>';
@@ -755,15 +755,15 @@
                 var subs = $.grep(kids[sw.id] || [], function (c) { return !c.client && c.type === 'switch'; });
                 var l = sw.link || {};
                 return '<section class="nm-net nm-phys" style="--net:#2e9e6b"><header>' + icon('sitemap') + ' <b>' + esc(sw.label) + '</b>' +
-                    '<span class="text-muted">' + esc(sw.sub || '') + '</span><span class="nm-sub-link" title="Link towards the firewall">' +
+                    '<span class="text-muted">' + esc(sw.sub || '') + '</span><span class="nm-box-link" title="Link towards the firewall">' +
                     esc(linkText(l)) + '</span><span class="nm-net-stat">' + esc(aps.length) + ' ' + icon('wifi') + ' &nbsp;' + esc(wired.length) + ' ' +
                     icon('plug') + '</span></header>' +
                     $.map(aps, function (a) { return apBlock(a, 0); }).join('') +
-                    '<div class="nm-sub nm-sub-wired"><header>' + icon('plug') + ' <b>On a cable</b><span class="nm-net-stat">' + esc(wired.length) +
+                    '<div class="nm-box nm-box-wired"><header>' + icon('plug') + ' <b>On a cable</b><span class="nm-net-stat">' + esc(wired.length) +
                     '</span></header>' + grid(wired, 'No device on a cable.') + '</div>' +
                     $.map(subs, function (x) {
-                        return x.unmanaged ? '<div class="nm-sub nm-sub-unmanaged"><header>' + icon('sitemap') + ' <b>' + esc(x.label) +
-                            '</b><span class="text-muted">not monitored</span><span class="nm-sub-link">' + esc(linkText(x.link)) + '</span></header>' +
+                        return x.unmanaged ? '<div class="nm-box nm-box-unmanaged"><header>' + icon('sitemap') + ' <b>' + esc(x.label) +
+                            '</b><span class="text-muted">not monitored</span><span class="nm-box-link">' + esc(linkText(x.link)) + '</span></header>' +
                             grid(leavesOf(x), 'No device seen behind it.') + '</div>' : switchPanel(x);
                     }).join('') + '</section>';
             }
