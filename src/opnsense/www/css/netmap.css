@@ -107,7 +107,7 @@
 .nm-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 600px; overflow-x: hidden; max-width: 100%; z-index: 2000; background: #fff;
     box-shadow: -4px 0 16px rgba(0, 0, 0, 0.18); transform: translateX(105%); transition: transform 0.2s; overflow-y: auto; }
 .nm-drawer.nm-open { transform: none; }
-.nm-dhead { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+.nm-dhead { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid rgba(127, 127, 127, 0.25); background: inherit;
     position: sticky; top: 0; background: inherit; z-index: 1; }
 .nm-dhead h4 { margin: 0; }
 .nm-dhead .nm-ico { background: #3b82c4; width: 40px; height: 40px; font-size: 19px; }
@@ -154,3 +154,16 @@
 /* port scan */
 .nm-scan-tools { margin-bottom: 6px; }
 .nm-ports .label { font-size: 9px; }
+
+/* name, kind and DHCP */
+.nm-dtop { position: sticky; top: 0; z-index: 2; background: inherit; }
+.nm-dedit { padding: 10px 16px 0; }
+.nm-edit-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.nm-edit-row > span, .nm-edit-row > .btn { flex: none; }
+.nm-form { border: 1px solid rgba(127, 127, 127, 0.25); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; }
+.nm-form .form-group { margin-bottom: 8px; }
+.nm-form label { font-size: 12px; margin-bottom: 2px; }
+.nm-form .help-block { margin: 2px 0 0; }
+.nm-dhcp h5 { margin: 14px 0 6px; font-weight: 600; }
+.nm-apply { margin: 8px 0 0; padding: 6px 10px; }
+.nm-edit-msg .alert { margin: 8px 0 0; padding: 6px 10px; }

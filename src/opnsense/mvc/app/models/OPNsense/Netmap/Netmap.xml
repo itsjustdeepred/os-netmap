@@ -1,0 +1,25 @@
+<model>
+    <mount>//OPNsense/netmap</mount>
+    <version>1.0.0</version>
+    <description>Network map: names, kinds and notes of devices</description>
+    <items>
+        <devices>
+            <device type="ArrayField">
+                <mac type="MacAddressField">
+                    <Required>Y</Required>
+                </mac>
+                <name type="TextField">
+                    <Mask>/^[^\n\r]{0,64}$/</Mask>
+                    <ValidationMessage>Up to 64 characters.</ValidationMessage>
+                </name>
+                <kind type="TextField">
+                    <Mask>/^[a-z]{0,16}$/</Mask>
+                </kind>
+                <notes type="TextField">
+                    <Mask>/^[^\n\r]{0,256}$/</Mask>
+                    <ValidationMessage>Up to 256 characters on one line.</ValidationMessage>
+                </notes>
+            </device>
+        </devices>
+    </items>
+</model>

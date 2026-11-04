@@ -189,6 +189,8 @@
         this.blocked = {};       // ip -> {count, last}
         this.dns = {};           // ip -> name
         this.instanton = null;   // {clients: {mac: client}, topology: nodes}
+        this.custom = {};        // mac -> {name, kind, notes} given in the map
+        this.kea = {res: {}, subnets: []};  // Kea DHCPv4 reservations by MAC, subnets
         this.updated = {};
     }
 
@@ -296,9 +298,14 @@
             if (h.lastSeen && Date.now() / 1000 - h.lastSeen < 600) { h.online = true; }
             var ic = self.instanton && self.instanton.clients[h.mac];
             h.ic = ic || null;
-            h.name = (ic && (ic.description || ic.hostname || ic.port_label || ic.cloud_name)) || (h.lease && h.lease.hostname) ||
-                h.arpName || '';
-            var kind = ic && ic.type && ic.type !== 'unknown' ? [ic.type, 'Instant On'] : guessType([h.name], h.vendor);
+            var cu = self.custom[h.mac] || {}, res = self.kea.res[h.mac] || null;
+            h.custom = cu;
+            h.res = res;
+            h.autoName = (res && (res.description || res.hostname)) ||
+                (ic && (ic.description || ic.hostname || ic.port_label || ic.cloud_name)) || (h.lease && h.lease.hostname) || h.arpName || '';
+            h.name = cu.name || h.autoName;
+            var kind = cu.kind && TYPES[cu.kind] ? [cu.kind, 'your choice'] :
+                (ic && ic.type && ic.type !== 'unknown' ? [ic.type, 'Instant On'] : guessType([h.name, h.autoName], h.vendor));
             h.type = TYPES[kind[0]] ? kind[0] : 'unknown';
             h.typeSource = kind[1];
             // how it is connected: known from Instant On, otherwise a guess
@@ -317,6 +324,19 @@
             var cur = self.byIp[o[0]];
             if (!cur || score(o[1]) > score(cur)) { self.byIp[o[0]] = o[1]; }
         });
+    };
+
+    Model.prototype.loadNames = function (devices, reservations, subnets) {
+        var custom = {}, res = {};
+        $.each(devices || [], function (_, d) { custom[normMac(d.mac)] = d; });
+        $.each(reservations || [], function (_, r) { if (r.hw_address) { res[normMac(r.hw_address)] = r; } });
+        this.custom = custom;
+        this.kea = {res: res, subnets: $.map(subnets || [], function (sn) { return {uuid: sn.uuid, cidr: sn.subnet, name: sn.description || ''}; })};
+    };
+
+    Model.prototype.keaSubnetOf = function (ip) {
+        for (var i = 0; i < this.kea.subnets.length; i++) { if (inCidr(ip, this.kea.subnets[i].cidr)) { return this.kea.subnets[i]; } }
+        return null;
     };
 
     // per-IP traffic from the state table; rates from the change since the previous poll
@@ -654,8 +674,11 @@
 
         function openDrawer(mac) {
             selected = mac;
+            editing = null;
             drawerData = {rows: [], prev: {}, history: [], log: [], scan: null};
+            $drawer.html('<div class="nm-dtop"></div><div class="nm-dedit"></div><div class="nm-dlive"></div>');
             $drawer.addClass('nm-open').attr('aria-hidden', 'false');
+            renderEdit();
             loadScan();
             $stage.find('.nm-sel').removeClass('nm-sel');
             $stage.find('[data-mac="' + mac + '"]').addClass('nm-sel');
@@ -835,11 +858,9 @@
                 ['Maker', esc(h.vendor)],
                 ['Network', h.net ? '<span class="nm-dot" style="--net:' + h.net.color + '"></span> ' + esc(h.net.name) + ' <span class="text-muted">' +
                     esc(h.net.cidr) + '</span>' : ''],
-                ['Kind', esc(TYPES[h.type][0]) + (h.typeSource ? ' <span class="text-muted small">from ' + esc(h.typeSource) + '</span>' : '')],
                 ['Connection', h.link ? linkBadge(h) + ' ' + esc(h.link === 'wifi' ? 'Wi-Fi' : 'cable') + (h.linkKnown ? '' : ' <span class="text-muted small">(guess)</span>') +
                     (ic.ap ? ' via <b>' + esc(ic.ap) + '</b>' : '') + (ic.ssid ? ' "' + esc(ic.ssid) + '"' : '') +
                     (ic.port ? ' port <b>' + esc((ic.switch_name ? ic.switch_name + ' ' : '') + ic.port) + '</b>' : '') : ''],
-                ['DHCP', h.lease ? esc(h.lease.reserved ? 'reserved' : 'dynamic') + (h.lease.hostname ? ' as ' + esc(h.lease.hostname) : '') : ''],
                 ['Seen', esc(h.online ? 'online now' : 'last ' + ago(h.lastSeen)) + (h.firstSeen ? ' <span class="text-muted">first ' + esc(ago(h.firstSeen)) + '</span>' : '')],
                 ['Since the connections opened', icon('arrow-down') + ' ' + esc(bytes(st.traffic.received)) + ' &nbsp;' + icon('arrow-up') + ' ' +
                     esc(bytes(st.traffic.sent)) + ' <span class="text-muted">in ' + esc(st.traffic.conns) + ' connections</span>']
@@ -876,9 +897,10 @@
             }).join('') + '</ul>'
                 : '<p class="text-muted small">Nothing blocked in the latest firewall log entries. Only rules with logging enabled ' +
                     '(and the default block rules) are recorded.</p>';
-            $drawer.html('<div class="nm-dhead"><span class="nm-ico">' + icon(TYPES[h.type][1]) + '</span><div><h4>' + esc(h.name || h.ip || h.mac) +
+            $drawer.find('.nm-dtop').html('<div class="nm-dhead"><span class="nm-ico">' + icon(TYPES[h.type][1]) + '</span><div><h4>' + esc(h.name || h.ip || h.mac) +
                 '</h4><small class="text-muted">' + esc(TYPES[h.type][0]) + (h.ip ? ' &middot; ' + esc(h.ip) : '') + '</small></div>' +
-                '<button type="button" class="close nm-close" aria-label="Close">&times;</button></div><div class="nm-dbody">' +
+                '<button type="button" class="close nm-close" aria-label="Close">&times;</button></div>');
+            $drawer.find('.nm-dlive').html('<div class="nm-dbody">' +
                 '<h5>Live traffic through the firewall</h5>' + chart() +
                 '<table class="table table-condensed nm-facts"><tbody>' + $.map(facts, function (f) {
                     return f[1] ? '<tr><th>' + esc(f[0]) + '</th><td>' + f[1] + '</td></tr>' : '';
@@ -892,6 +914,142 @@
                 '<a href="/ui/diagnostics/networkinsight" target="_blank">' + icon('external-link') + ' Insight history</a></p></div>');
         }
 
+        // ---- name, kind and DHCP reservation -------------------------------
+        var editing = null;     // 'device' or 'dhcp' while a form is open
+        var keaPending = false; // Kea reservations changed but not applied yet
+
+        function kindOptions(current) {
+            return '<option value="">automatic (' + esc(TYPES[guessType([selectedHost().autoName], selectedHost().vendor)[0]][0]) + ')</option>' +
+                $.map(Object.keys(TYPES).sort(function (a, b) { return TYPES[a][0].localeCompare(TYPES[b][0]); }), function (t) {
+                    return '<option value="' + t + '"' + (t === current ? ' selected' : '') + '>' + esc(TYPES[t][0]) + '</option>';
+                }).join('');
+        }
+
+        function selectedHost() { return model.hosts[selected]; }
+
+        function field(label, name, value, help, extra) {
+            return '<div class="form-group"><label>' + esc(label) + '</label><input type="text" class="form-control input-sm" name="' + name +
+                '" value="' + esc(value) + '"' + (extra || '') + '>' + (help ? '<p class="help-block small">' + help + '</p>' : '') + '</div>';
+        }
+
+        function renderEdit() {
+            var h = selectedHost();
+            var $e = $drawer.find('.nm-dedit');
+            if (!h || !$e.length) { return; }
+            var cu = h.custom || {}, res = h.res, html = '';
+            if (editing === 'device') {
+                html += '<form class="nm-form" data-form="device">' +
+                    field('Name in the map', 'name', cu.name || '', 'Leave empty to use ' + (h.autoName ? '"' + esc(h.autoName) + '"' : 'the address') + '.', ' maxlength="64"') +
+                    '<div class="form-group"><label>Kind</label><select class="form-control input-sm" name="kind">' + kindOptions(cu.kind || '') + '</select></div>' +
+                    field('Notes', 'notes', cu.notes || '', '', ' maxlength="256"') +
+                    '<button type="submit" class="btn btn-primary btn-xs">Save</button> <button type="button" class="btn btn-default btn-xs" data-cancel>Cancel</button></form>';
+            } else {
+                html += '<div class="nm-edit-row"><div><b>' + esc(h.name || h.ip) + '</b> <span class="text-muted small">' + esc(TYPES[h.type][0]) +
+                    (h.typeSource ? ', from ' + esc(h.typeSource) : '') + '</span>' + (cu.notes ? '<div class="small">' + esc(cu.notes) + '</div>' : '') +
+                    '</div><button type="button" class="btn btn-default btn-xs" data-edit="device">' + icon('pencil') + ' Rename</button></div>';
+            }
+            var subnet = h.ip ? model.keaSubnetOf(h.ip) : null;
+            html += '<div class="nm-dhcp"><h5>DHCP (Kea)</h5>';
+            if (editing === 'dhcp') {
+                html += '<form class="nm-form" data-form="dhcp">' +
+                    field('IP address', 'ip_address', res ? res.ip_address : h.ip, subnet ? 'In ' + esc(subnet.cidr) + (subnet.name ? ' (' + esc(subnet.name) + ')' : '') + '.' : '') +
+                    field('Hostname', 'hostname', res ? res.hostname : (h.lease && h.lease.hostname) || '', 'Letters, digits and hyphens; sent to the device and used for DNS registration.') +
+                    field('Description', 'description', res ? res.description : (cu.name || h.autoName || ''), '') +
+                    '<button type="submit" class="btn btn-primary btn-xs">' + (res ? 'Save reservation' : 'Create reservation') + '</button> ' +
+                    '<button type="button" class="btn btn-default btn-xs" data-cancel>Cancel</button></form>';
+            } else if (res) {
+                html += '<div class="nm-edit-row"><div>' + icon('lock') + ' Reserved <b>' + esc(res.ip_address || 'any address') + '</b>' +
+                    (res.hostname ? ' as <b>' + esc(res.hostname) + '</b>' : '') + (res.description ? '<div class="small text-muted">' + esc(res.description) + '</div>' : '') +
+                    '</div><span><button type="button" class="btn btn-default btn-xs" data-edit="dhcp">' + icon('pencil') + ' Edit</button> ' +
+                    '<button type="button" class="btn btn-default btn-xs" data-dhcp-del>' + icon('trash') + '</button></span></div>';
+            } else if (subnet) {
+                html += '<div class="nm-edit-row"><div class="small">' + (h.lease ? 'Dynamic lease' + (h.lease.hostname ? ' as <b>' + esc(h.lease.hostname) + '</b>' : '') +
+                    (h.lease.expire ? ', expires ' + esc(new Date(h.lease.expire * 1000).toLocaleString()) : '') : 'No lease seen') +
+                    '</div><button type="button" class="btn btn-default btn-xs" data-edit="dhcp">' + icon('lock') + ' Reserve this address</button></div>';
+            } else {
+                html += '<p class="small text-muted">Kea has no subnet for ' + esc(h.net ? h.net.name : 'this network') + ': the address is static ' +
+                    'or given by another DHCP server.</p>';
+            }
+            if (keaPending) {
+                html += '<div class="alert alert-info nm-apply">' + icon('info-circle') + ' Reservation changes are saved but Kea does not use them yet. ' +
+                    '<button type="button" class="btn btn-primary btn-xs" data-kea-apply>Apply</button></div>';
+            }
+            html += '<div class="nm-edit-msg"></div></div>';
+            $e.html(html);
+        }
+
+        function editMessage(kind, text) {
+            $drawer.find('.nm-edit-msg').html('<div class="alert alert-' + kind + ' small">' + text + '</div>');
+        }
+
+        function failure(r) {
+            if (r && r.validations) { return $.map(r.validations, function (v) { return esc(v); }).join('<br>'); }
+            return esc((r && (r.message || r.errorMessage)) || 'the change was refused');
+        }
+
+        function afterSave() {
+            editing = null;
+            return loadHosts().always(function () { renderEdit(); renderDrawer(); draw(); });
+        }
+
+        $drawer.on('click', '[data-edit]', function () { editing = $(this).data('edit'); renderEdit(); });
+        $drawer.on('click', '[data-cancel]', function () { editing = null; renderEdit(); });
+        $drawer.on('submit', '.nm-form', function (e) {
+            e.preventDefault();
+            var h = selectedHost(), v = {};
+            $(this).serializeArray().forEach(function (f) { v[f.name] = $.trim(f.value); });
+            var $btn = $(this).find('[type=submit]').prop('disabled', true);
+            var req;
+            if ($(this).data('form') === 'device') {
+                req = search('netmap/devices/save', {mac: h.mac, name: v.name, kind: v.kind, notes: v.notes});
+            } else if (h.res) {
+                req = search('kea/dhcpv4/set_reservation/' + encodeURIComponent(h.res.uuid),
+                    {reservation: {ip_address: v.ip_address, hostname: v.hostname, description: v.description}});
+            } else {
+                var subnet = model.keaSubnetOf(v.ip_address || h.ip);
+                if (!subnet) { editMessage('danger', 'The address is not in a Kea subnet.'); $btn.prop('disabled', false); return; }
+                req = search('kea/dhcpv4/add_reservation', {reservation: {subnet: subnet.uuid, ip_address: v.ip_address, hw_address: h.mac,
+                    hostname: v.hostname, description: v.description}});
+            }
+            var isDhcp = $(this).data('form') === 'dhcp';
+            req.done(function (r) {
+                if (r && (r.result === 'saved' || r.result === 'deleted')) {
+                    if (isDhcp) { keaPending = true; }
+                    afterSave();
+                } else {
+                    editMessage('danger', failure(r));
+                    $btn.prop('disabled', false);
+                }
+            }).fail(function (xhr) {
+                editMessage('danger', xhr.status === 403 ? 'Your account may not make this change.' : 'HTTP ' + esc(xhr.status));
+                $btn.prop('disabled', false);
+            });
+        });
+        $drawer.on('click', '[data-dhcp-del]', function () {
+            var h = selectedHost();
+            if (!h || !h.res) { return; }
+            var $b = $(this);
+            if (!$b.data('armed')) {
+                $b.data('armed', true).addClass('btn-danger').html(icon('trash') + ' Delete reservation?');
+                return;
+            }
+            search('kea/dhcpv4/del_reservation/' + encodeURIComponent(h.res.uuid), {}).done(function (r) {
+                if (r && r.result === 'deleted') { keaPending = true; afterSave(); } else { editMessage('danger', failure(r)); }
+            });
+        });
+        $drawer.on('click', '[data-kea-apply]', function () {
+            var $b = $(this).prop('disabled', true).html(icon('spinner fa-pulse') + ' Applying...');
+            search('kea/service/reconfigure', {}).done(function (r) {
+                keaPending = false;
+                renderEdit();
+                editMessage(r && r.status === 'ok' ? 'success' : 'warning', r && r.status === 'ok' ? 'Kea uses the new reservations.' :
+                    'Kea answered: ' + esc(JSON.stringify(r)));
+            }).fail(function (xhr) {
+                $b.prop('disabled', false).text('Apply');
+                editMessage('danger', 'HTTP ' + esc(xhr.status));
+            });
+        });
+
         // ---- polling ----------------------------------------------------
         function status(text) { $root.find('.nm-status').html(text); }
 
@@ -902,8 +1060,12 @@
                 search('kea/leases4/search', {current: 1, rowCount: -1, searchPhrase: ''}).then(null, function () { return $.Deferred().resolve([{rows: []}]); }),
                 get('diagnostics/interface/get_arp'),
                 get('instanton/status/clients').then(null, function () { return $.Deferred().resolve([null]); }),
-                get('instanton/status/topology').then(null, function () { return $.Deferred().resolve([null]); })
-            ).done(function (ifs, disc, leases, arp, icClients, icTopo) {
+                get('instanton/status/topology').then(null, function () { return $.Deferred().resolve([null]); }),
+                get('netmap/devices/list').then(null, function () { return $.Deferred().resolve([{devices: []}]); }),
+                search('kea/dhcpv4/search_reservation').then(null, function () { return $.Deferred().resolve([{rows: []}]); }),
+                search('kea/dhcpv4/search_subnet').then(null, function () { return $.Deferred().resolve([{rows: []}]); })
+            ).done(function (ifs, disc, leases, arp, icClients, icTopo, names, res, subnets) {
+                model.loadNames((names[0] || {}).devices, (res[0] || {}).rows, (subnets[0] || {}).rows);
                 model.loadInterfaces((ifs[0] || {}).rows);
                 var ic = icClients && icClients[0], topo = icTopo && icTopo[0];
                 if (ic && ic.clients) {
@@ -913,6 +1075,7 @@
                 }
                 model.loadHosts((disc[0] || {}).rows, (leases[0] || {}).rows, arp[0]);
                 syncToolbar();
+                if (selected && !editing) { renderEdit(); }
             });
         }
 

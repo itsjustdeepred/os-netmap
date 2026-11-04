@@ -20,6 +20,14 @@ with its traffic. Read-only.
   bytes and the rule that allowed it, and the packets the firewall blocked
   with the rule that blocked them.
 
+* **Name, kind and DHCP** (device panel) – rename a device, choose its kind
+  and add notes (stored in the firewall configuration, also for devices
+  outside DHCP). See whether Kea DHCP has a reservation for it; edit its
+  address, hostname and description, delete it, or reserve the current
+  address, then apply the change to Kea. Reservation changes use the Kea
+  API with the privileges of the logged-in user. Device names come from,
+  in order: the name given in the map, the Kea reservation, Instant On,
+  the DHCP lease and the ARP table.
 * **Open ports** (device panel) – a Fing-like port scan with nmap running
   on the firewall: *quick* (the 200 most common TCP ports with service
   names, about a minute) or *full* (every TCP port, service versions and an
@@ -42,6 +50,8 @@ Only core OPNsense APIs, read from the browser:
 | Remote names | `unbound/diagnostics/dumpcache` |
 | Physical links, Wi-Fi | `instanton/status/{clients,topology}` (optional) |
 | Open ports | `netmap/scan/{start,status}` (this plugin, nmap) |
+| Names, kinds, notes | `netmap/devices/{list,save}` (this plugin) |
+| DHCP reservations | `kea/dhcpv4/{search,add,set,del}_reservation`, `kea/dhcpv4/search_subnet`, `kea/service/reconfigure` |
 
 Limits: the firewall only sees traffic that crosses it (to the Internet
 and between networks). Two devices on the same network talk through the

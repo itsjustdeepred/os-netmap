@@ -13,8 +13,18 @@
             <pattern>api/diagnostics/networkinsight/*</pattern>
             <pattern>api/unbound/diagnostics/dumpcache*</pattern>
             <pattern>api/netmap/scan/status*</pattern>
+            <pattern>api/netmap/devices/list*</pattern>
+            <pattern>api/kea/dhcpv4/search_reservation*</pattern>
+            <pattern>api/kea/dhcpv4/search_subnet*</pattern>
         </patterns>
     </page-reporting-netmap>
+    <page-reporting-netmap-edit>
+        <name>Reporting: Network Map: edit devices</name>
+        <description>Give devices a name, a kind and notes in the network map. Changing DHCP reservations needs the Kea DHCP privileges as well.</description>
+        <patterns>
+            <pattern>api/netmap/devices/*</pattern>
+        </patterns>
+    </page-reporting-netmap-edit>
     <page-reporting-netmap-scan>
         <name>Reporting: Network Map: scan devices</name>
         <description>Start nmap port scans of devices on the networks attached to the firewall.</description>
