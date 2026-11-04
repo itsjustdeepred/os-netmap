@@ -2030,6 +2030,7 @@
             onlyNew = false;
             $root.find('.nm-q').val('');
             $root.find('.nm-withports').prop('checked', false);
+            $root.find('.nm-type, .nm-group').val('');
             save();
             syncToolbar();
             draw();
