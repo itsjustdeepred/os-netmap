@@ -465,7 +465,7 @@
             '    <button type="button" class="btn btn-default btn-sm" data-link="wifi">' + icon('wifi') + ' Wi-Fi</button>' +
             '    <button type="button" class="btn btn-default btn-sm" data-link="none" title="Connection not known">?</button>' +
             '  </div>' +
-            '  <select class="form-control input-sm nm-type"><option value="">every kind</option></select>' +
+            '  <select class="form-control input-sm nm-type"><option value="">everything</option></select>' +
             '  <label class="nm-check"><input type="checkbox" class="nm-active"> talking now</label>' +
             '  <label class="nm-check"><input type="checkbox" class="nm-offline"> offline too</label>' +
             '  <select class="form-control input-sm nm-sort"><option value="traffic">by traffic</option><option value="name">by name</option>' +
@@ -493,9 +493,10 @@
             $root.find('.nm-active').prop('checked', filters.active);
             $root.find('.nm-offline').prop('checked', filters.offline);
             $root.find('.nm-sort').val(filters.sort);
-            $root.find('[data-view=physical]').prop('disabled', !(model.instanton && model.instanton.topology))
-                .attr('title', model.instanton && model.instanton.topology ? 'Switches and access points (Instant On plugin)'
-                    : 'Needs the Instant On plugin to know the switches and access points');
+            // the physical view needs switch and access point data: without it there is only one view and no choice
+            var physical = !!(model.instanton && model.instanton.topology);
+            $root.find('.nm-view').toggle(physical);
+            if (!physical && filters.view !== 'networks') { filters.view = 'networks'; }
         }
 
         $root.on('click', '[data-view]', function () { filters.view = $(this).data('view'); save(); syncToolbar(); draw(); });
@@ -587,7 +588,7 @@
         function fillTypes() {
             var seen = {};
             $.each(model.hosts, function (_, h) { seen[h.type] = 1; });
-            var html = '<option value="">every kind</option>' + $.map(Object.keys(seen).sort(function (a, b) {
+            var html = '<option value="">everything</option>' + $.map(Object.keys(seen).sort(function (a, b) {
                 return TYPES[a][0].localeCompare(TYPES[b][0]);
             }), function (t) { return '<option value="' + t + '">' + esc(TYPES[t][0]) + '</option>'; }).join('');
             var $s = $root.find('.nm-type');
@@ -981,7 +982,7 @@
                     field('Name in the map', 'name', cu.name || '', 'Leave empty to use ' + (h.autoName ? '"' + esc(h.autoName) + '"' : 'the address') + '.', ' maxlength="64"') +
                     '<div class="form-group"><label>Icon and kind</label><div class="nm-icons">' + iconPicker(cu.kind || '') + '</div></div>' +
                     field('Notes', 'notes', cu.notes || '', '', ' maxlength="256"') +
-                    '<button type="submit" class="btn btn-primary btn-xs">Save</button> <button type="button" class="btn btn-default btn-xs" data-cancel>Cancel</button></form>';
+                    '<button type="submit" class="btn btn-success btn-xs">Save</button> <button type="button" class="btn btn-default btn-xs" data-cancel>Cancel</button></form>';
             } else {
                 html += '<div class="nm-edit-row"><div><b>' + esc(h.name || h.ip) + '</b> <span class="text-muted small">' + esc(TYPES[h.type][0]) +
                     (h.typeSource ? ', from ' + esc(h.typeSource) : '') + '</span>' + (cu.notes ? '<div class="small">' + esc(cu.notes) + '</div>' : '') +
@@ -994,7 +995,7 @@
                     field('IP address', 'ip_address', res ? res.ip_address : h.ip, subnet ? 'In ' + esc(subnet.cidr) + (subnet.name ? ' (' + esc(subnet.name) + ')' : '') + '.' : '') +
                     field('Hostname', 'hostname', res ? res.hostname : (h.lease && h.lease.hostname) || '', 'Letters, digits and hyphens; sent to the device and used for DNS registration.') +
                     field('Description', 'description', res ? res.description : (cu.name || h.autoName || ''), '') +
-                    '<button type="submit" class="btn btn-primary btn-xs">' + (res ? 'Save reservation' : 'Create reservation') + '</button> ' +
+                    '<button type="submit" class="btn btn-success btn-xs">' + (res ? 'Save reservation' : 'Create reservation') + '</button> ' +
                     '<button type="button" class="btn btn-default btn-xs" data-cancel>Cancel</button></form>';
             } else if (res) {
                 html += '<div class="nm-edit-row"><div>' + icon('lock') + ' Reserved <b>' + esc(res.ip_address || 'any address') + '</b>' +
@@ -1011,7 +1012,7 @@
             }
             if (keaPending) {
                 html += '<div class="alert alert-info nm-apply">' + icon('info-circle') + ' Reservation changes are saved but Kea does not use them yet. ' +
-                    '<button type="button" class="btn btn-primary btn-xs" data-kea-apply>Apply</button></div>';
+                    '<button type="button" class="btn btn-success btn-xs" data-kea-apply>Apply</button></div>';
             }
             html += '<div class="nm-edit-msg"></div></div>' + fwHtml(h);
             $e.html(html);
@@ -1232,7 +1233,7 @@
                         'the forward stops working when the device gets another address. Reserve it in the DHCP section first.</p>') +
                     '<p class="small text-muted">Connections from the Internet to the firewall on this port reach ' + esc(h.ip) +
                     '. The forward is created on the WAN interface and passes its traffic without a separate rule.</p>' +
-                    '<button type="submit" class="btn btn-primary btn-xs">Create port forward</button> ' +
+                    '<button type="submit" class="btn btn-success btn-xs">Create port forward</button> ' +
                     '<button type="button" class="btn btn-default btn-xs" data-cancel>Cancel</button></form>';
             } else {
                 html += '<div><button type="button" class="btn btn-default btn-xs" data-edit="forward"' + (model.wanIf ? '' : ' disabled') + '>' +
