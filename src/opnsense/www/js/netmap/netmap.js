@@ -1684,12 +1684,56 @@
             if (!(d.domains || []).length) { return html + '<p class="small text-muted">No queries from this address in the AdGuard Home log.</p>'; }
             var max = Math.max.apply(null, $.map(d.domains, function (x) { return x.count; }));
             return html + '<ul class="nm-list nm-dns-list">' + $.map(d.domains, function (x) {
+                var ur = x.user_rule, btn;
+                if (ur) {
+                    btn = '<span class="label label-' + (ur.action === 'block' ? 'danger' : 'success') + '" title="Your custom rule in AdGuard Home">' +
+                        esc(ur.action === 'block' ? 'blocked by you' : 'allowed by you') + (ur.scope === 'all' ? ', whole network' : '') + '</span> ' +
+                        '<button type="button" class="btn btn-default btn-xs" data-dns-rule="remove" data-scope="' + ur.scope + '" data-domain="' +
+                        esc(x.name) + '" title="Remove your rule">' + icon('undo') + '</button>';
+                } else if (x.blocked) {
+                    btn = '<button type="button" class="btn btn-success btn-xs" data-dns-rule="allow" data-domain="' + esc(x.name) + '">' +
+                        icon('check') + ' Allow</button>';
+                } else {
+                    btn = '<button type="button" class="btn btn-warning btn-xs" data-dns-rule="block" data-domain="' + esc(x.name) + '">' +
+                        icon('ban') + ' Block</button>';
+                }
                 return '<li><div class="nm-l1"><span class="nm-r-name">' + esc(x.name) + '</span>' +
-                    (x.blocked ? '<span class="label label-danger">blocked</span>' : '') + '<span class="nm-r-rate small">' + esc(x.count) + '</span></div>' +
+                    (x.blocked && !ur ? '<span class="label label-danger">blocked</span>' : '') + '<span class="nm-r-rate small">' + esc(x.count) +
+                    ' &nbsp;' + btn + '</span></div>' +
                     '<div class="nm-hbar"><i style="width:' + Math.max(2, Math.round(x.count * 100 / max)) + '%' + (x.blocked ? ';background:#c4473b' : '') + '"></i></div>' +
                     (x.rule ? '<div class="nm-l2"><span class="nm-rule nm-rule-block">' + icon('ban') + ' ' + esc(x.rule) + '</span></div>' : '') + '</li>';
             }).join('') + '</ul>';
         }
+
+        // block or allow one domain with a custom rule in AdGuard Home, for this device or the whole network
+        $drawer.on('click', '[data-dns-rule]', function () {
+            var h = selectedHost(), action = $(this).data('dns-rule'), domain = $(this).data('domain');
+            var scopeFixed = $(this).data('scope');
+            var body = '<p>' + (action === 'remove' ? 'Remove your AdGuard Home rule for <b>' + esc(domain) + '</b>?'
+                : (action === 'block' ? 'Block' : 'Allow') + ' <b>' + esc(domain) + '</b> in AdGuard Home?') + '</p>';
+            if (action !== 'remove') {
+                body += '<div class="nm-scope"><label><input type="radio" name="nm-scope" value="device" checked> only for <b>' +
+                    esc(h.name || h.ip) + '</b> (' + esc(h.ip) + ')</label><label><input type="radio" name="nm-scope" value="all"> for every ' +
+                    'device on the network</label></div><ul class="nm-modal-points"><li>' + (action === 'block'
+                        ? 'AdGuard Home answers queries for this domain and its subdomains with a blocked reply.'
+                        : 'An exception rule: the domain and its subdomains are answered even when a blocklist contains them.') +
+                    '</li><li>The rule appears in AdGuard Home under Filters &gt; Custom filtering rules, where it can also be removed.</li>' +
+                    '<li>A rule for one device follows its address ' + esc(h.ip) + '.</li></ul>';
+            }
+            var scope = 'device';
+            $(document).one('change.nmscope', 'input[name=nm-scope]', function () { scope = this.value; });
+            $(document).on('change.nmscope', 'input[name=nm-scope]', function () { scope = this.value; });
+            confirmDialog(action === 'remove' ? 'Remove DNS rule' : (action === 'block' ? 'Block a domain' : 'Allow a domain'), body,
+                action === 'remove' ? 'Remove rule' : (action === 'block' ? 'Block' : 'Allow'), action === 'block').always(function () {
+                    $(document).off('change.nmscope');
+                }).done(function () {
+                    search('netmap/adguard/rule', {domain: domain, action: action, scope: action === 'remove' ? scopeFixed : scope, ip: h.ip})
+                        .done(function (r) {
+                            if (!r || r.status !== 'ok') { fwMessage('danger', esc((r && r.message) || 'AdGuard Home refused the rule')); }
+                            loadAdguard();
+                        });
+                });
+        });
 
         $drawer.on('click', '[data-dns-reload]', function (e) { e.preventDefault(); loadAdguard(); renderDrawer(); });
         $drawer.on('click', '[data-dns-block]', function () {

@@ -67,7 +67,10 @@ The page is under **Network Map > Dashboard** in the main menu.
 * **DNS from AdGuard Home** (device panel, when set up in Settings) – the
   domains the device asked for in the latest query log entries, the ones
   AdGuard Home blocked with the rule, and *Block DNS* / *Allow DNS* through
-  the AdGuard Home disallowed clients. The firewall talks to AdGuard Home,
+  the AdGuard Home disallowed clients. Every domain has a *Block* or *Allow*
+  button that writes a custom filtering rule (||domain^ or @@||domain^),
+  for that device only or for the whole network; rules made here can be
+  removed again from the map. The firewall talks to AdGuard Home,
   so its password never reaches the browser. In Settings give the host and
   port of the AdGuard Home web interface (127.0.0.1 and 3000 when it runs on
   the firewall).

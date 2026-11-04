@@ -275,3 +275,6 @@
 .nm-resolve-row .small { flex-basis: 100%; padding-left: 38px; margin-top: -4px; }
 .nm-status-head { font-size: 13px; font-weight: normal; margin-left: 12px; vertical-align: middle; color: #8a8f96; }
 .nm-status-head .fa-circle { color: #2e9e6b; font-size: 9px; animation: nm-pulse 2s infinite; }
+.nm-scope label { display: block; font-weight: normal; margin: 4px 0; }
+.nm-scope { margin-bottom: 12px; padding: 8px 12px; border-radius: 8px; background: rgba(127,127,127,0.08); }
+.nm-dns-list .nm-r-rate .btn { margin-left: 4px; }

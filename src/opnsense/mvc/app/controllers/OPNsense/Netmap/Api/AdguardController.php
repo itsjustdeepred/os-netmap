@@ -136,6 +136,11 @@ class AdguardController extends ApiControllerBase
         });
         list(, $access) = $this->request('GET', '/control/access/list');
         $disallowed = is_array($access) ? ($access['disallowed_clients'] ?? []) : [];
+        $rules = $this->userRules();
+        foreach ($domains as &$d) {
+            $d['user_rule'] = $this->findRule($rules ?: [], $d['name'], $ip);
+        }
+        unset($d);
         return ['status' => 'ok', 'total' => $total, 'blocked' => $blocked, 'since' => $oldest,
             'domains' => array_slice($domains, 0, 40), 'dns_blocked' => in_array($ip, $disallowed ?: [], true)];
     }
@@ -171,5 +176,69 @@ class AdguardController extends ApiControllerBase
             'blocked_hosts' => $access['blocked_hosts'],
         ]);
         return $err ? ['status' => 'error', 'message' => $err] : ['status' => 'ok', 'blocked' => $block === '1'];
+    }
+
+    private function userRules()
+    {
+        list(, $status, $err) = $this->request('GET', '/control/filtering/status');
+        return $err || !is_array($status) ? null : array_values($status['user_rules'] ?? []);
+    }
+
+    /**
+     * The rules this plugin writes: ||domain^ or @@||domain^, optionally limited to one client.
+     */
+    private function ruleText($action, $domain, $client)
+    {
+        return ($action === 'allow' ? '@@' : '') . '||' . $domain . '^' . ($client !== '' ? '$client=\'' . $client . '\'' : '');
+    }
+
+    /**
+     * The custom rule that concerns this domain: for this client first, then for everyone.
+     */
+    private function findRule($rules, $domain, $ip)
+    {
+        foreach ([$ip, ''] as $client) {
+            foreach (['block', 'allow'] as $action) {
+                if (in_array($this->ruleText($action, $domain, $client), $rules, true)) {
+                    return ['action' => $action, 'scope' => $client === '' ? 'all' : 'device'];
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * POST domain, action (block, allow or remove), scope (device or all), ip (for scope device).
+     * Adds or removes a custom filtering rule in AdGuard Home.
+     */
+    public function ruleAction()
+    {
+        if (!$this->request->isPost()) {
+            return ['status' => 'error', 'message' => 'POST required'];
+        }
+        $domain = strtolower(rtrim(trim((string)$this->request->getPost('domain')), '.'));
+        $action = (string)$this->request->getPost('action');
+        $scope = (string)$this->request->getPost('scope');
+        $ip = (string)$this->request->getPost('ip');
+        if (!preg_match('/^(?=.{1,253}$)([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9])?\.)*[a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9])?$/', $domain) ||
+            !in_array($action, ['block', 'allow', 'remove'], true) || !in_array($scope, ['device', 'all'], true) ||
+            ($scope === 'device' && !$this->validIp($ip))) {
+            return ['status' => 'error', 'message' => 'invalid request'];
+        }
+        $rules = $this->userRules();
+        if ($rules === null) {
+            return ['status' => 'error', 'message' => 'cannot read the AdGuard Home custom rules'];
+        }
+        $client = $scope === 'device' ? $ip : '';
+        // drop both kinds of rule for this domain and scope, then add the requested one
+        $mine = [$this->ruleText('block', $domain, $client), $this->ruleText('allow', $domain, $client)];
+        $rules = array_values(array_filter($rules, function ($r) use ($mine) {
+            return !in_array($r, $mine, true);
+        }));
+        if ($action !== 'remove') {
+            $rules[] = $this->ruleText($action, $domain, $client);
+        }
+        list(, , $err) = $this->request('POST', '/control/filtering/set_rules', ['rules' => $rules]);
+        return $err ? ['status' => 'error', 'message' => $err] : ['status' => 'ok'];
     }
 }
