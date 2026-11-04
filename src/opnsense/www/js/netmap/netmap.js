@@ -1792,7 +1792,16 @@
         }
         setInterval(showUpdated, 1000);
 
+        function loadScans() {
+            return get('netmap/scan/list').done(function (d) {
+                var byMac = {};
+                $.each((d && d.devices) || [], function (_, x) { byMac[x.mac] = x; });
+                model.scans = byMac;
+            });
+        }
+
         function loadHosts() {
+            loadScans();
             return $.when(
                 get('interfaces/overview/interfaces_info'),
                 search('hostdiscovery/service/search', {current: 1, rowCount: -1, searchPhrase: ''}),
@@ -1801,11 +1810,6 @@
                 get('instanton/status/clients').then(null, function () { return $.Deferred().resolve([null]); }),
                 get('instanton/status/topology').then(null, function () { return $.Deferred().resolve([null]); }),
                 get('netmap/devices/list').then(null, function () { return $.Deferred().resolve([{devices: []}]); }),
-                get('netmap/scan/list').then(function (d) {
-                    var byMac = {};
-                    $.each((d && d.devices) || [], function (_, x) { byMac[x.mac] = x; });
-                    model.scans = byMac;
-                }, function () { return $.Deferred().resolve(); }),
                 search('kea/dhcpv4/search_reservation').then(null, function () { return $.Deferred().resolve([{rows: []}]); }),
                 search('kea/dhcpv4/search_subnet').then(null, function () { return $.Deferred().resolve([{rows: []}]); }),
                 loadFirewall()

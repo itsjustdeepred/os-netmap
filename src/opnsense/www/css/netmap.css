@@ -261,3 +261,6 @@
 .nm-scan-hist { margin-top: 8px; }
 .nm-scan-hist summary { cursor: pointer; color: var(--nm-muted); }
 .nm-scan-hist .nm-l2 span { white-space: nowrap; }
+
+/* room for the arrow of the select boxes */
+.netmap select.form-control, .nm-drawer select.form-control { padding-right: 26px; background-position: right 8px center; }
