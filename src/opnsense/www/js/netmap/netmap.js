@@ -673,6 +673,10 @@
 
         $drawer.on('click', '.nm-close', closeDrawer);
         $(document).on('keydown', function (e) { if (e.key === 'Escape' && selected) { closeDrawer(); } });
+        // a click anywhere outside the panel closes it (a click on another device opens that one instead)
+        $(document).on('mousedown', function (e) {
+            if (selected && !$(e.target).closest('.nm-drawer, .nm-card, .modal, .bootstrap-dialog').length) { closeDrawer(); }
+        });
 
         // ---- port scan (nmap on the firewall) ----------------------------
         function loadScan() {

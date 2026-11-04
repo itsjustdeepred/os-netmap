@@ -18,5 +18,5 @@ rmdir /usr/local/opnsense/mvc/app/controllers/OPNsense/Netmap/Api \
 	/usr/local/opnsense/www/js/netmap 2>/dev/null || true
 rm -rf /var/db/netmap
 service configd restart
-rm -f /tmp/opnsense_menu_cache.xml /tmp/opnsense_acl_cache.json
+rm -f /tmp/opnsense_menu_cache.xml /tmp/opnsense_acl_cache.json /var/lib/php/tmp/opnsense_menu_cache.xml /var/lib/php/tmp/opnsense_acl_cache.json
 echo ">>> removed"
