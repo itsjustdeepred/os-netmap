@@ -1588,26 +1588,30 @@
             var hs = drawerData.hist;
             if (!hs || hs.loading) { return '<p class="small text-muted">' + icon('spinner fa-pulse') + ' reading Insight...</p>'; }
             if (hs.error) { return '<p class="small text-muted">Insight is not available (HTTP ' + esc(hs.error) + '). Enable NetFlow in Reporting &gt; NetFlow.</p>'; }
-            var peers = {}, sent = 0, received = 0;
-            function add(rows, remoteKey, dir) {
+            // Insight keeps the volume of a connection in both directions together: one total per remote host and port,
+            // whether the device opened the connection or the remote did (the same flow can appear in both lists)
+            var peers = {};
+            function add(rows, remoteKey) {
                 $.each(rows, function (_, r) {
                     var key = r[remoteKey] + '|' + r.service_port + '|' + r.protocol;
-                    var p = peers[key] || (peers[key] = {ip: r[remoteKey], port: r.service_port, proto: r.protocol, sent: 0, received: 0});
-                    p[dir] += +r.total || 0;
-                    if (dir === 'sent') { sent += +r.total || 0; } else { received += +r.total || 0; }
+                    var p = peers[key] || (peers[key] = {ip: r[remoteKey], port: r.service_port, proto: r.protocol, total: 0});
+                    p.total = Math.max(p.total, +r.total || 0);
                 });
             }
-            add(hs.sent || [], 'dst_addr', 'sent');
-            add(hs.received || [], 'src_addr', 'received');
-            var list = $.map(peers, function (p) { return p; }).sort(function (a, b) { return (b.sent + b.received) - (a.sent + a.received); });
+            add(hs.sent || [], 'dst_addr');
+            add(hs.received || [], 'src_addr');
+            var list = $.map(peers, function (p) { return p; }).sort(function (a, b) { return b.total - a.total; });
             if (!list.length) { return '<p class="small text-muted">No traffic recorded in this period.</p>'; }
-            return '<p class="small">' + icon('arrow-down') + ' <b>' + esc(bytes(received)) + '</b> received &nbsp; ' + icon('arrow-up') + ' <b>' +
-                esc(bytes(sent)) + '</b> sent <span class="text-muted">(top flows)</span></p><ul class="nm-list">' + $.map(list.slice(0, 15), function (p) {
+            var total = 0;
+            $.each(list, function (_, p) { total += p.total; });
+            var max = list[0].total || 1;
+            return '<p class="small"><b>' + esc(bytes(total)) + '</b> exchanged with the ' + esc(list.length) + ' busiest remote hosts and ports</p>' +
+                '<ul class="nm-list nm-hist-list">' + $.map(list.slice(0, 15), function (p) {
                     var name = remoteName(p.ip);
                     return '<li><div class="nm-l1"><span class="nm-r-name">' + esc(name || p.ip) + '</span><span class="nm-r-port">' +
-                        esc(String(p.proto || '').toUpperCase() + ' ' + (p.port || '')) + '</span><span class="nm-r-rate small">' + icon('arrow-down') +
-                        esc(bytes(p.received)) + ' ' + icon('arrow-up') + esc(bytes(p.sent)) + '</span></div>' +
-                        (name ? '<div class="nm-l2"><span>' + esc(p.ip) + '</span></div>' : '') + '</li>';
+                        esc(String(p.proto || '').toUpperCase() + ' ' + (p.port || '')) + '</span><span class="nm-r-rate small">' +
+                        esc(bytes(p.total)) + '</span></div><div class="nm-hbar"><i style="width:' + Math.max(2, Math.round(p.total * 100 / max)) +
+                        '%"></i></div>' + (name ? '<div class="nm-l2"><span>' + esc(p.ip) + '</span></div>' : '') + '</li>';
                 }).join('') + '</ul>';
         }
 

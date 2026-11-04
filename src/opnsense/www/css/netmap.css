@@ -251,3 +251,5 @@
 .nm-fw-sched .nm-fw-row select { width: auto; max-width: 220px; display: inline-block; }
 .nm-dbody h5 .nm-hist-span { display: inline-block; width: auto; height: 24px !important; padding: 1px 6px !important; font-size: 12px;
     margin-left: 6px; vertical-align: middle; }
+.nm-hbar { height: 3px; background: rgba(127,127,127,0.15); border-radius: 2px; margin: 3px 0 0 22px; }
+.nm-hbar i { display: block; height: 100%; background: #3b82c4; border-radius: 2px; }
